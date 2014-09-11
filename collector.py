@@ -128,23 +128,13 @@ class Collector:
 		if settings.debug:
 			print " - sendMsg: /weather/time %d %d %d" % (hours, minutes, data["time"])
 		
+
 		for name in settings.fields:
-			value = self.data[name]
-
-			#--------------------------------------------------------------
-			# apply smoothing based on current and previous values.
-			#--------------------------------------------------------------
-			if self.smoothed[name] is None:
-				self.smoothed[name] = value
-			else:
-				self.smoothed[name] = (settings.smoothing[name] * self.smoothed[name]) + (value * (1.0 - settings.smoothing[name]))
-
 			#--------------------------------------------------------------
 			# send OSC message.
 			# for some variables, we might want to always send out our
 			# peak value (eg, rain).
 			#--------------------------------------------------------------
-			# value = self.data[name]
 			value = self.smoothed[name]
 			if settings.use_peak[name]:
 				value = self.data_max[name]
@@ -164,7 +154,17 @@ class Collector:
 		#--------------------------------------------------------------
 		# normalise values over <histsize> readings.
 		#--------------------------------------------------------------
-		for name, value in self.smoothed.items():
+		for name in settings.fields:
+			value = self.data[name]
+
+			#--------------------------------------------------------------
+			# apply smoothing based on current and previous values.
+			#--------------------------------------------------------------
+			if self.smoothed[name] is None:
+				self.smoothed[name] = value
+			else:
+				self.smoothed[name] = (settings.smoothing[name] * self.smoothed[name]) + (value * (1.0 - settings.smoothing[name]))
+
 			#--------------------------------------------------------------
 			# calculate minimum, mean and max of values over <histsize>.
 			# use these to generate normalised [0,1] values.
@@ -423,7 +423,8 @@ if __name__ == "__main__":
 				try:
 					print "%-26s" % time.strftime(settings.time_format, time.localtime(collector.data["time"])),
 					for key in settings.fields:
-						values = "[%.2f, %.2f, %.2f]" % (collector.data_min[key], collector.data[key], collector.data_max[key])
+						# values = "[%.2f, %.2f, %.2f]" % (collector.data_min[key], collector.data[key], collector.data_max[key])
+						values = "[%.2f, %.2f]" % (collector.data[key], collector.data_norm[key])
 						print "%-26s" % values,
 					print ""
 				except Exception, e:
