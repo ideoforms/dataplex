@@ -1,5 +1,6 @@
 #!/usr/local/bin/python
 
+import os
 import csv
 import OSC
 import sys
@@ -48,8 +49,8 @@ class Collector:
 		#--------------------------------------------------------------
 		# general-purpose initialisation.
 		#--------------------------------------------------------------
-		self.smoothed = dict([ (name, None) for name in settings.fields ])
-		self.history = []
+		self.smoothed = dict([ (name, 0.0) for name in settings.fields ])
+		self.history = dict([ (name, []) for name in settings.fields ])
 		self.data = {}
 		self.data_norm = {}
 		self.data_min  = {}
@@ -58,11 +59,17 @@ class Collector:
 
 		#--------------------------------------------------------------
 		# we always want to transmit over OSC. set this up now.
+		# support specifying multiple OSC ports for multicast.
 		#--------------------------------------------------------------
-		if settings.debug:
-			print "connecting: %s, %s" % (settings.osc_host, settings.osc_port)
-		self.osc = OSC.OSCClient()
-		self.osc.connect((settings.osc_host, settings.osc_port))
+		self.osc_clients = []
+		for destination in settings.osc_destinations:
+			osc_host, osc_port = destination.split(":")
+			osc_port = int(osc_port)
+			if settings.debug:
+				print "connecting: %s, %s" % (osc_host, osc_port)
+			osc_client = OSC.OSCClient()
+			osc_client.connect((osc_host, osc_port))
+			self.osc_clients.append(osc_client)
 
 	def init_log(self):
 		#--------------------------------------------------------------
@@ -73,14 +80,21 @@ class Collector:
 		self.logwriter = csv.writer(self.logfd)
 		self.logwriter.writerow([ "time" ] + settings.fields)
 
-		print "logfile: %s" % logfile
-
 	def set_data(self, data):
+		# print "set_data %s" % data
 		self.data = data
-		self.history.append(self.data)
-		while len(self.history) > settings.histsize:
-			self.history.pop(0)
-		self.calculate_norms()
+		for key, value in self.data.items():
+			try:
+				self.history[key].append(value)
+				while len(self.history[key]) > settings.histsize:
+					self.history[key].pop(0)
+			except KeyError:
+				# print "key %s not found in history!" % key
+				pass
+		try:
+			self.calculate_norms()
+		except Exception, e:
+			print "Error whilst calculating normalised values! %s" % e
 
 	def log(self):
 		#--------------------------------------------------------------
@@ -94,11 +108,12 @@ class Collector:
 		msg = OSC.OSCMessage(address)
 		msg.extend(list(args))
 
-		try:
-			self.osc.send(msg)
-		except Exception, e:
-			if settings.debug:
-				print "send failed (%s)" % e
+		for client in self.osc_clients:
+			try:
+				client.send(msg)
+			except Exception, e:
+				if settings.debug:
+					print "send failed (%s)" % e
 
 	def send(self):
 		#--------------------------------------------------------------
@@ -149,23 +164,25 @@ class Collector:
 		#--------------------------------------------------------------
 		# normalise values over <histsize> readings.
 		#--------------------------------------------------------------
-		# print "values over %d readings" % len(self.history)
-		for name in settings.fields:
+		for name, value in self.smoothed.items():
 			#--------------------------------------------------------------
 			# calculate minimum, mean and max of values over <histsize>.
 			# use these to generate normalised [0,1] values.
 			#--------------------------------------------------------------
-			# value = self.data[name]
-			value = self.smoothed[name]
-			field_hist = [ histitem[name] for histitem in self.history ]
-			field_min = min(field_hist)
-			field_max = max(field_hist)
-			field_mean = mean(field_hist)
-			field_sd = stddev(field_hist, field_mean)
+			hist = self.history[name] 
+			field_min = min(hist)
+			field_max = max(hist)
+			field_mean = mean(hist)
+			field_sd = stddev(hist, field_mean)
 			if field_max == field_min:
-				value_norm = 0.0
+				value_norm = 0.5
 			else:
 				value_norm = scale(value, field_min, field_mean, field_max)
+
+			if value_norm < 0:
+				value_norm = 0
+			if value_norm > 1:
+				value_norm = 1
 
 			#--------------------------------------------------------------
 			# store values in data_norm for future use.
@@ -179,9 +196,9 @@ class Collector:
 			# print "%s: norm = %.3f, value = %.3f, min = %.3f, mean = %.3f, max = %.3f, sd = %.3f" % (name, value_norm, value, field_min, field_mean, field_max, field_sd)
 
 class CollectorPakbus(Collector):
-	import pakbus
-
 	def __init__(self):
+		import pakbus
+
 		Collector.__init__(self)
 
 		#--------------------------------------------------------------
@@ -200,6 +217,7 @@ class CollectorPakbus(Collector):
 		self.init_log()
 
 	def collect(self):
+		import pakbus
 		data = {}
 
 		data["time"] = int(time.time())
@@ -212,8 +230,9 @@ class CollectorPakbus(Collector):
 			#--------------------------------------------------------------
 			value = pakbus.getvalues(self.serial, settings.pakbus_nodeid, settings.pakbus_mynodeid, "Public", 'IEEE4B', longname)
 			value = value[0]
-			if name == "sun":
-				value += 500
+			# why were we adding 500 to sun?
+			# if name == "sun":
+			#	value += 500
 			# data.append(value)
 			# print "data %s: %.3f" % (name, value)
 			# if name == "rain":
@@ -252,7 +271,7 @@ class CollectorUltimeter(Collector):
 		#--------------------------------------------------------------
 		try:
 			self.ultimeter = ultimeter.Ultimeter()
-			self.ultimeter.open()
+			self.ultimeter.start()
 		except Exception, e:
 			print "Couldn't open serial device: %s" % e
 			sys.exit(1)
@@ -262,12 +281,13 @@ class CollectorUltimeter(Collector):
 	def collect(self):
 		data = {}
 
-		data["time"] = int(time.time())
-
 		for name in settings.fields:
-			data[name] = self.ultimeter.values[name]
+			if name in self.ultimeter.values:
+				data[name] = self.ultimeter.values[name]
 
-		if (not settings.uniq) or (data != self.data):
+		if data and ((not settings.uniq) or (data != self.data)):
+			data["time"] = int(time.time())
+
 			#--------------------------------------------------------------
 			# only log new data (if specified)
 			#--------------------------------------------------------------
@@ -283,8 +303,6 @@ class CollectorUltimeter(Collector):
 
 class CollectorCSV(Collector):
 	def __init__(self):
-		Collector.__init__(self)
-
 		#--------------------------------------------------------------
 		# set up our file reader.
 		#--------------------------------------------------------------
@@ -292,11 +310,18 @@ class CollectorCSV(Collector):
 		self.inreader = csv.reader(self.infd)
 		self.log_fields = self.inreader.next()
 
+		settings.fields = self.log_fields[:]
+		settings.fields.remove("time")
+
+		#--------------------------------------------------------------
+		# init after we've read the CSV header, as this determines
+		# what fields we will be reading
+		#--------------------------------------------------------------
+		Collector.__init__(self)
+
 		#--------------------------------------------------------------
 		# first field is always timestamp.
 		#--------------------------------------------------------------
-		# self.field_names.pop(0)
-
 		self.data = self.get_next()
 		self.t0_log  = self.data["time"]
 		self.t0_time = time.time()
@@ -327,6 +352,7 @@ def usage():
 	print "  -p: input mode pakbus (Campbell Scientific)"
 	print "  -u: input mode ultiemter (Peet Bros)"
 	print "  -f: input mode .csv file"
+	print "  -r: rate of CSV reading"
 	print "  -d: debug output"
 	print "  -n: disable smoothing"
 
@@ -334,10 +360,15 @@ def usage():
 
 if __name__ == "__main__":
 	#--------------------------------------------------------------
+	# unbuffered stdout for launchctl logging
+	#--------------------------------------------------------------
+	sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+
+	#--------------------------------------------------------------
 	# pull commandline opts and update settings appropriately.
 	#--------------------------------------------------------------
 	try:
-		flags, args = getopt.getopt(sys.argv[1:], "f:pudn")
+		flags, args = getopt.getopt(sys.argv[1:], "f:pudnr:")
 	except:
 		usage()
 
@@ -351,6 +382,8 @@ if __name__ == "__main__":
 			settings.mode = MODE_ULTIMETER
 		elif key == "-d":
 			settings.debug = True
+		elif key == "-r":
+			settings.csv_rate = float(value)
 		elif key == "-n":
 			print "smoothing disabled"
 			for key, value in settings.smoothing.items():
@@ -387,11 +420,14 @@ if __name__ == "__main__":
 				# print "\t".join([ "%.10f" % collector.data[key] for key in settings.fields ])
 				# for key in settings.fields:
 				# 	print "[%.3f, %.3f, %.3f]\t" % (collector.data_min[key], collector.data[key], collector.data_max[key]),
-				print "%-26s" % time.strftime(settings.time_format, time.localtime(collector.data["time"])),
-				for key in settings.fields:
-					values = "[%.2f, %.2f, %.2f]" % (collector.data_min[key], collector.data[key], collector.data_max[key])
-					print "%-26s" % values,
-				print ""
+				try:
+					print "%-26s" % time.strftime(settings.time_format, time.localtime(collector.data["time"])),
+					for key in settings.fields:
+						values = "[%.2f, %.2f, %.2f]" % (collector.data_min[key], collector.data[key], collector.data_max[key])
+						print "%-26s" % values,
+					print ""
+				except Exception, e:
+					print "failed: %s" % e
 	
 			if settings.mode == MODE_PAKBUS or settings.mode == MODE_ULTIMETER:
 				time.sleep(settings.serial_sleep)

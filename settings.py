@@ -5,14 +5,15 @@ debug = False
 #----------------------------------------------------------------------
 # I/O setup
 #----------------------------------------------------------------------
-mode = collector.MODE_ULTIMETER
+# mode = collector.MODE_ULTIMETER
+mode = collector.MODE_PAKBUS
 logfile = "logs/weather-data.%Y%m%d.%H%M%S.csv"
 time_format = "%Y/%m/%d-%H:%M:%S"
 
 #----------------------------------------------------------------------
 # data reading options
 #----------------------------------------------------------------------
-csv_rate = 100
+csv_rate = 1
 csv_sleep = 0.1
 
 #----------------------------------------------------------------------
@@ -24,7 +25,7 @@ serial_sleep = 0.5
 #----------------------------------------------------------------------
 # how many history values shall we use for normalized/change values?
 #----------------------------------------------------------------------
-histsize = 100
+histsize = 300
 
 #----------------------------------------------------------------------
 # do we wish to only output new values?
@@ -35,15 +36,14 @@ uniq = False
 #----------------------------------------------------------------------
 # network config
 #----------------------------------------------------------------------
-osc_host = "localhost"
-osc_port = 7400
+osc_destinations = [ "localhost:7400", "localhost:6100" ]
 
 #----------------------------------------------------------------------
 # serial setup
 #----------------------------------------------------------------------
 pakbus_nodeid = 0x01
 pakbus_mynodeid = 0x802
-pakbus_dev = "/dev/cu.usbserial-FTELIIL0"
+pakbus_dev = "/dev/cu.usbserial-FTGOJL30"
 
 #----------------------------------------------------------------------
 # translations from BWS names to shortnames
@@ -52,8 +52,8 @@ translations = {
 	"Batt_Volt" : "battery",
 	"AirTC" 	: "temperature",
 	"RH" 		: "humidity",
-	"WS_ms" 	: "windspeed",
-	"WindDir"	: "winddir",
+	"WS_ms" 	: "wind_speed",
+	"WindDir"	: "wind_dir",
 	"Rain_mm"	: "rain",
 	"Solar_W"	: "sun",
 
@@ -65,14 +65,17 @@ translations = {
 #----------------------------------------------------------------------
 # fields to read
 #----------------------------------------------------------------------
-fields = [ "temperature", "humidity", "windspeed", "winddir", "sun", "rain" ]
+if mode == collector.MODE_ULTIMETER:
+	fields = [ "temperature", "humidity", "wind_speed", "wind_dir", "rain" ]
+else:
+	fields = [ "temperature", "humidity", "wind_speed", "wind_dir", "rain", "sun" ]
 
 smoothing = {
 	"battery"		: 0.0,
 	"temperature"	: 0.0,
 	"humidity"		: 0.0,
-	"windspeed"		: 0.9,
-	"winddir"		: 0.5,
+	"wind_speed"	: 0.9,
+	"wind_dir"		: 0.9,
 	"rain"			: 0.0,
 	"sun"			: 0.5
 }
@@ -81,8 +84,8 @@ use_peak = {
 	"battery"		: False,
 	"temperature"	: False,
 	"humidity"		: False,
-	"windspeed"		: False,
-	"winddir"		: False,
+	"wind_speed"	: False,
+	"wind_dir"		: False,
 	# "rain"			: True,
 	# switched off for summer school 
 	"rain"			: False,
