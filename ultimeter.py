@@ -11,7 +11,20 @@ Must be put into data logger mode by holding CLEAR + WINDSPEED for 3 seconds.
 """
 
 DATA_HEADER = "!!"
-DATA_FIELDS = [ "wind_speed", "wind_dir", "temperature", "rain", "pressure", "indoor_temp", "humidity", "indoor_humidity", "date", "time", "rain_total", "wind_speed_mean" ]
+DATA_FIELDS = [
+	"wind_speed",
+	"wind_dir",
+	"temperature",
+	"rain",
+	"pressure",
+	"indoor_temp",
+	"humidity",
+	"indoor_humidity",
+	"date",
+	"time",
+	"rain_total",
+	"wind_speed_mean"
+]
 
 class Ultimeter:
 	def __init__(self, debug = False):

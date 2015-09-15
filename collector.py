@@ -12,6 +12,8 @@ import getopt
 
 import settings
 
+from simutils import mean, stddev
+
 MODE_FILE = 0
 MODE_PAKBUS = 1
 MODE_ULTIMETER = 2
@@ -93,7 +95,7 @@ class Collector:
 				pass
 		try:
 			self.calculate_norms()
-		except Exception, e:
+		except TypeError, e:
 			print "Error whilst calculating normalised values! %s" % e
 
 	def log(self):
@@ -120,6 +122,8 @@ class Collector:
 		# first, send current time in hours and minutes 
 		#--------------------------------------------------------------
 		localtime = time.localtime(data["time"])
+		# DJJ - use now
+		localtime = time.localtime(time.time())
 		hours   = localtime[3]
 		minutes = localtime[4]
 
@@ -142,7 +146,6 @@ class Collector:
 			#--------------------------------------------------------------
 			# why do we need to send min/max values?
 			#--------------------------------------------------------------
-			# osc.sendMsg("/w/%s" % name, [ value, self.data_norm[name], self.data_min[name], self.data_mean[name], self.data_max[name] ], settings.osc_host, settings.osc_port)
 			self.sendOSC("/weather/%s" % name, value, self.data_norm[name], self.data_min[name], self.data_mean[name], self.data_max[name])
 			if settings.debug:
 				print " - sendMsg: /weather/%s %.3f %.3f %.3f %.3f %.3f" % (name, value, self.data_norm[name], self.data_min[name], self.data_mean[name], self.data_max[name] )
@@ -230,13 +233,10 @@ class CollectorPakbus(Collector):
 			#--------------------------------------------------------------
 			value = pakbus.getvalues(self.serial, settings.pakbus_nodeid, settings.pakbus_mynodeid, "Public", 'IEEE4B', longname)
 			value = value[0]
-			# why were we adding 500 to sun?
-			# if name == "sun":
-			#	value += 500
-			# data.append(value)
-			# print "data %s: %.3f" % (name, value)
-			# if name == "rain":
-			#	print "data %s: %.3f" % (name, value)
+
+			if name == "wind_dir" and settings.reverse_wind_dir:
+				value = 360.0 - value
+
 			data[name] = value
 
 		if (not settings.uniq) or (data != self.data):
@@ -350,7 +350,7 @@ class CollectorCSV(Collector):
 def usage():
 	print "Usage: %s [-f <csv_file>] [-s]" % sys.argv[0]
 	print "  -p: input mode pakbus (Campbell Scientific)"
-	print "  -u: input mode ultiemter (Peet Bros)"
+	print "  -u: input mode ultimeter (Peet Bros)"
 	print "  -f: input mode .csv file"
 	print "  -r: rate of CSV reading"
 	print "  -d: debug output"
@@ -424,7 +424,8 @@ if __name__ == "__main__":
 					print "%-26s" % time.strftime(settings.time_format, time.localtime(collector.data["time"])),
 					for key in settings.fields:
 						# values = "[%.2f, %.2f, %.2f]" % (collector.data_min[key], collector.data[key], collector.data_max[key])
-						values = "[%.2f, %.2f]" % (collector.data[key], collector.data_norm[key])
+						values = "[%.1f, %.2f, %.1f > %.2f]" % (collector.data_min[key], collector.data[key], collector.data_max[key], collector.data_norm[key])
+						# values = "[%.2f, %.2f]" % (collector.data[key], collector.data_norm[key])
 						print "%-26s" % values,
 					print ""
 				except Exception, e:
@@ -439,5 +440,6 @@ if __name__ == "__main__":
 		#--------------------------------------------------------------
 		# die silently.
 		#--------------------------------------------------------------
+		print "killed by ctrl-c"
 		pass
 

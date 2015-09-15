@@ -5,8 +5,8 @@ debug = False
 #----------------------------------------------------------------------
 # I/O setup
 #----------------------------------------------------------------------
-# mode = collector.MODE_ULTIMETER
-mode = collector.MODE_PAKBUS
+mode = collector.MODE_ULTIMETER
+# mode = collector.MODE_PAKBUS
 logfile = "logs/weather-data.%Y%m%d.%H%M%S.csv"
 time_format = "%Y/%m/%d-%H:%M:%S"
 
@@ -14,18 +14,17 @@ time_format = "%Y/%m/%d-%H:%M:%S"
 # data reading options
 #----------------------------------------------------------------------
 csv_rate = 1
-csv_sleep = 0.1
+csv_sleep = 0.05
 
 #----------------------------------------------------------------------
 # sleep between pulling data from serial
 #----------------------------------------------------------------------
 serial_sleep = 0.5
-# smoothing = 0.00
 
 #----------------------------------------------------------------------
 # how many history values shall we use for normalized/change values?
 #----------------------------------------------------------------------
-histsize = 300
+histsize = 500
 
 #----------------------------------------------------------------------
 # do we wish to only output new values?
@@ -36,7 +35,7 @@ uniq = False
 #----------------------------------------------------------------------
 # network config
 #----------------------------------------------------------------------
-osc_destinations = [ "localhost:7400", "localhost:6100" ]
+osc_destinations = [ "localhost:7400", "localhost:6100", "localhost:8000", "localhost:58000" ]
 
 #----------------------------------------------------------------------
 # serial setup
@@ -75,7 +74,7 @@ smoothing = {
 	"temperature"	: 0.0,
 	"humidity"		: 0.0,
 	"wind_speed"	: 0.9,
-	"wind_dir"		: 0.9,
+	"wind_dir"		: 0.5,
 	"rain"			: 0.0,
 	"sun"			: 0.5
 }
@@ -86,11 +85,8 @@ use_peak = {
 	"humidity"		: False,
 	"wind_speed"	: False,
 	"wind_dir"		: False,
-	# "rain"			: True,
-	# switched off for summer school 
 	"rain"			: False,
 	"sun"			: False
-	
 }
 
-# smoothing = 0.99
+reverse_wind_dir = True
