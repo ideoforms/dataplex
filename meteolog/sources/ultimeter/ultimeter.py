@@ -3,7 +3,8 @@ import time
 import serial
 import datetime
 import threading
-from Queue import *
+
+# from Queue import *
 
 """
 Must be put into data logger mode by holding CLEAR + WINDSPEED for 3 seconds.
@@ -40,78 +41,73 @@ class Ultimeter:
 
 		self.port_name = None
 		self.read_thread = None
+
+		self.open()
 	
 	def start(self):
 		#------------------------------------------------------------------------
 		# start running, and connect when serial port available
 		#------------------------------------------------------------------------
-		self.background_poll()
+		if self.read_thread:
+			print "*** already running background poll, refusing to start another thread"
+			return
+		else:
+			self.read_thread = threading.Thread(target = self.read_serial)
+			#------------------------------------------------------------------------
+			# set daemon mode to True so this thread dies when the main thread
+			# is killed.
+			#------------------------------------------------------------------------
+			self.read_thread.daemon = True
+			self.read_thread.start()
 
 	def trace(self, text):
 		if self.debug:
 			print text
 
+	@property
 	def is_open(self):
+		""" Indicate whether this Ultimeter device is connected.
+		"""
 		return True if self.port else False
 
 	def open(self, port_name = None):
-		""" Open a connection to the named serial device (eg /dev/tty.*) """
-		try:
-			if port_name is None:
-				self.port_name = port_name
+		""" Open a connection to the named serial device (eg /dev/tty.*)
+		"""
+		if self.is_open:
+			return
 
-				#------------------------------------------------------------------------
-				# see if we can find a default FTDI-style interface ID
-				#------------------------------------------------------------------------
-				interfaces = glob.glob("/dev/cu.usbserial-*")
-				interfaces = sorted(interfaces)
-				if interfaces:
-					self.port_name = interfaces[0]
-			if self.port_name is None:
-				print "No serial port found, please specify."
-				return
-
-			print "Trying to open serial port: %s" % self.port_name
-			if self.port is not None:
-				print "Port already open, bailing"
-				return 
-
-			self.port = serial.Serial(baudrate = 2400, timeout = 0.1)
-			self.port.setPort(self.port_name)
-			self.port.open()
-			print "Port opened"
+		if port_name is None:
+			self.port_name = port_name
 
 			#------------------------------------------------------------------------
-			# each time we connect, set the date of the unit and switch it to
-			# datalogger mode, as both of these things are lost on reset.
+			# see if we can find a default FTDI-style interface ID
 			#------------------------------------------------------------------------
-			self.set_date()
-			self.set_data_logger()
-			print "Set date etc"
+			interfaces = glob.glob("/dev/cu.usbserial-*")
+			interfaces = sorted(interfaces)
+			if interfaces:
+				self.port_name = interfaces[0]
 
-			return self.port.getCTS()
+		if self.port_name is None:
+			raise Exception, "No serial port found, please specify."
 
-		except Exception, e:
-			print "open Exception: %s" % e
-			self.port = None
-			return False
+		self.port = serial.Serial(baudrate = 2400, timeout = 0.1)
+		self.port.setPort(self.port_name)
+		self.port.open()
+
+		#------------------------------------------------------------------------
+		# each time we connect, set the date of the unit and switch it to
+		# datalogger mode, as both of these things are lost on reset.
+		#------------------------------------------------------------------------
+		self.set_date()
+		self.set_data_logger()
+
+		return self.port.getCTS()
 
 	def close(self):
 		if self.port:
 			self.port.close()
 		self.port = None
 
-	def background_poll(self):
-		# set daemon mode to True so this thread dies when the main thread
-		# is killed
-		if self.read_thread:
-			print "*** already running background poll, refusing to start another thread"
-			return
-		else:
-			print "Starting background thread"
-			self.read_thread = threading.Thread(target = self.read_serial)
-			self.read_thread.daemon = True
-			self.read_thread.start()
 
 	def set_date(self):
 		#------------------------------------------------------------------------
@@ -140,6 +136,9 @@ class Ultimeter:
 		self.port.write(">I\n")
 
 	def read_serial(self):
+		""" Read loop that continuously reads CR-delimited serial data.
+		If the connection is closed, it will be reopened automatically. 
+		"""
 		while True:
 			self.open()
 
@@ -167,7 +166,6 @@ class Ultimeter:
 							self.trace("[POLL] read: %s" % text)
 						except serial.SerialException, e:
 							print "*** error reading serial: %s" % e
-							# self.port.close()
 							break
 						n = self.port.inWaiting()
 					time.sleep(0.02)
@@ -181,19 +179,32 @@ class Ultimeter:
 			time.sleep(1)
 
 	def handle(self, message):
-		# print "handling %s" % message
+		""" Execute a complete message. """
+
 		if not message.startswith(DATA_HEADER):
-			# print "bad message: %s (no header)" % message
+			#------------------------------------------------------------------------
+			# invalid message (no header.)
+			#------------------------------------------------------------------------
 			return
+
 		message = message[len(DATA_HEADER):]
 		self.values = {}
 		for field in DATA_FIELDS:
 			value = message[:4]
+
+			#------------------------------------------------------------------------
+			# Interpret our message as a hex value.
+			#------------------------------------------------------------------------
 			try:
 				value = int("0x" + value, 0)
 			except:
 				value = 0
 			message = message[4:]
+
+			#------------------------------------------------------------------------
+			# Now convert between native serial values and our desired metric
+			# measure.
+			#------------------------------------------------------------------------
 			if field == "temperature":
 				#------------------------------------------------------------------------
 				# temperature: unit = 0.1 degrees fahrenheit
@@ -230,7 +241,10 @@ class Ultimeter:
 				value = value / 100.0
 				
 			self.values[field] = value
-			# print "%-16s: %s" % (field, value)
+
+		#------------------------------------------------------------------------
+		# if we have a callback set, call it now with our updated values.
+		#------------------------------------------------------------------------
 		if self.handler:
 			self.handler(self.values)
 
@@ -240,9 +254,9 @@ def main():
 			print "%s - %f" % (key, value)
 
 	ultimeter = Ultimeter()
-	print "created"
 	ultimeter.handler = handler
 	ultimeter.start()
+
 	while True:
 		time.sleep(0.1)
 
