@@ -42,7 +42,7 @@ uniq = False
 #----------------------------------------------------------------------
 # network config
 #----------------------------------------------------------------------
-osc_destinations = [ "localhost:7400", "localhost:6100", "localhost:8000", "localhost:58001" ]
+osc_destinations = [ "localhost:7400", "localhost:6100", "localhost:58000", "localhost:58001" ]
 
 use_peak = {
 	"battery"		: False,

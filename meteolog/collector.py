@@ -1,5 +1,3 @@
-#!/usr/local/bin/python
-
 import os
 import csv
 import sys
@@ -56,6 +54,17 @@ class Collector:
 		# support specifying multiple OSC ports for multicast.
 		#--------------------------------------------------------------
 		self.destinations = []
+
+		#--------------------------------------------------------------
+		# by default, output to a logfile and stdout.
+		#--------------------------------------------------------------
+		self.destinations.append(DestinationLog())
+		self.destinations.append(DestinationStdout())
+
+		#--------------------------------------------------------------
+		# we currently always want to transmit over OSC. set this up now.
+		# support specifying multiple OSC ports for multicast.
+		#--------------------------------------------------------------
 		for destination_address in settings.osc_destinations:
 			osc_host, osc_port = destination_address.split(":")
 			destination = DestinationOSC(osc_host, int(osc_port))
@@ -67,8 +76,6 @@ class Collector:
 
 	def run(self):
 		try:
-			count = 0
-
 			while True:
 				#--------------------------------------------------------------
 				# eternal loop. pull the latest data and output to screen.
@@ -79,38 +86,26 @@ class Collector:
 					#--------------------------------------------------------------
 					# TODO: we should throw this when a CSV file has finished
 					#--------------------------------------------------------------
-					print "STOP"
+					print "Source %s ended stream." % self.source
 					break
 
-				if filter(lambda field: field not in record.keys(), settings.fields):
-					continue
-
+				#--------------------------------------------------------------
+				# Set time value, and record any values that are present.
+				#--------------------------------------------------------------
 				self.data["time"] = record["time"]
 				for key in settings.fields:
 					if key in record:
 						self.data[key].register(record[key])
 
-				self.send(self.data)
+				#--------------------------------------------------------------
+				# send our current data to each destination
+				#--------------------------------------------------------------
+				for destination in self.destinations:
+					destination.send(self.data)
 
 				#--------------------------------------------------------------
-				# add a heading every N lines for readability.
+				# send our current data to each destination
 				#--------------------------------------------------------------
-				if count % settings.print_interval == 0:
-					print " ".join([ "%-26s" % key for key in [ "time" ] + settings.fields ])
-				count = count + 1
-		
-				#--------------------------------------------------------------
-				# add a heading every N lines for readability.
-				#--------------------------------------------------------------
-				print "%-26s" % time.strftime(settings.time_format, time.localtime(self.data["time"])),
-				for key in settings.fields:
-					values = "[%.2f, %.2f]" % (
-						self.data[key].value,
-						self.data[key].normalised
-					)
-					print "%-26s" % values,
-				print ""
-	
 				if settings.source == SOURCE_PAKBUS or settings.source == SOURCE_ULTIMETER:
 					time.sleep(settings.serial_sleep)
 				elif settings.source == SOURCE_CSV:
@@ -122,45 +117,6 @@ class Collector:
 			#--------------------------------------------------------------
 			print "killed by ctrl-c"
 			pass
-
-	def init_log(self):
-		#--------------------------------------------------------------
-		# start writing to output logfile.
-		#--------------------------------------------------------------
-		logfile = time.strftime(settings.logfile)
-		self.logfd = open(logfile, "w")
-		self.logwriter = csv.writer(self.logfd)
-		self.logwriter.writerow([ "time" ] + settings.fields)
-
-	def set_data(self, data):
-		# print "set_data %s" % data
-		self.data = data
-		for key, value in self.data.items():
-			try:
-				self.history[key].append(value)
-				while len(self.history[key]) > settings.global_history:
-					self.history[key].pop(0)
-			except KeyError:
-				# print "key %s not found in history!" % key
-				pass
-		try:
-			self.calculate_norms()
-		except TypeError, e:
-			print "Error whilst calculating normalised values! %s" % e
-
-	def log(self):
-		#--------------------------------------------------------------
-		# write the latest set of data to logfile.
-		#--------------------------------------------------------------
-		now = time.strftime(settings.time_format, time.localtime(self.data["time"]))
-		self.logwriter.writerow([ now ] + [ self.data[key] for key in settings.fields ])
-
-	def send(self, data):
-		#--------------------------------------------------------------
-		# send our current data to each destination
-		#--------------------------------------------------------------
-		for destination in self.destinations:
-			destination.send(data)
 
 	def parse_args(self):
 		def usage():
