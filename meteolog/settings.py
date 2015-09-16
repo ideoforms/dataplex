@@ -1,12 +1,13 @@
-import collector
+from meteolog.constants import *
+
+fields = [ "wind_speed", "wind_dir", "temperature", "humidity", "pressure", "rain", "sun" ]
 
 debug = False
 
 #----------------------------------------------------------------------
 # I/O setup
 #----------------------------------------------------------------------
-mode = collector.MODE_ULTIMETER
-# mode = collector.MODE_PAKBUS
+source = SOURCE_ULTIMETER
 logfile = "logs/weather-data.%Y%m%d.%H%M%S.csv"
 time_format = "%Y/%m/%d-%H:%M:%S"
 
@@ -22,9 +23,15 @@ csv_sleep = 0.05
 serial_sleep = 0.5
 
 #----------------------------------------------------------------------
+# lines between printing output
+#----------------------------------------------------------------------
+print_interval = 40
+
+#----------------------------------------------------------------------
 # how many history values shall we use for normalized/change values?
 #----------------------------------------------------------------------
-histsize = 500
+global_history = 500
+recent_history = 20
 
 #----------------------------------------------------------------------
 # do we wish to only output new values?
@@ -35,49 +42,7 @@ uniq = False
 #----------------------------------------------------------------------
 # network config
 #----------------------------------------------------------------------
-osc_destinations = [ "localhost:7400", "localhost:6100", "localhost:8000", "localhost:58000" ]
-
-#----------------------------------------------------------------------
-# serial setup
-#----------------------------------------------------------------------
-pakbus_nodeid = 0x01
-pakbus_mynodeid = 0x802
-pakbus_dev = "/dev/cu.usbserial-FTGOJL30"
-
-#----------------------------------------------------------------------
-# translations from BWS names to shortnames
-#----------------------------------------------------------------------
-translations = {
-	"Batt_Volt" : "battery",
-	"AirTC" 	: "temperature",
-	"RH" 		: "humidity",
-	"WS_ms" 	: "wind_speed",
-	"WindDir"	: "wind_dir",
-	"Rain_mm"	: "rain",
-	"Solar_W"	: "sun",
-
-	"TdC	" 	: "dewpoint",
-	"WindRun" 	: "windrun",
-	"Solar_kJ" 	: "sunkj",
-}
-
-#----------------------------------------------------------------------
-# fields to read
-#----------------------------------------------------------------------
-if mode == collector.MODE_ULTIMETER:
-	fields = [ "temperature", "humidity", "wind_speed", "wind_dir", "rain" ]
-else:
-	fields = [ "temperature", "humidity", "wind_speed", "wind_dir", "rain", "sun" ]
-
-smoothing = {
-	"battery"		: 0.0,
-	"temperature"	: 0.0,
-	"humidity"		: 0.0,
-	"wind_speed"	: 0.9,
-	"wind_dir"		: 0.5,
-	"rain"			: 0.0,
-	"sun"			: 0.5
-}
+osc_destinations = [ "localhost:7400", "localhost:6100", "localhost:8000", "localhost:58001" ]
 
 use_peak = {
 	"battery"		: False,
@@ -90,3 +55,4 @@ use_peak = {
 }
 
 reverse_wind_dir = True
+
