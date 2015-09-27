@@ -25,10 +25,15 @@ class SourceCSV (Source):
 		self.t0_log = None
 		self.t0_time = None
 
+		self.read()
+
 	def read(self):
 		row = self.reader.next()
 		row[0] = time.mktime(time.strptime(row[0], settings.time_format))
 		row = dict([ (self.fields[n], float(value)) for n, value in enumerate(row) ])
+
+		self.next = row
+
 		return row
 
 	def collect(self):
@@ -38,14 +43,13 @@ class SourceCSV (Source):
 			#--------------------------------------------------------------
 			# first field is always timestamp.
 			#--------------------------------------------------------------
-			data = self.read()
-			self.t0_log  = data["time"]
+			self.t0_log  = self.next["time"]
 			self.t0_time = time.time()
+			data = self.next
+			self.read()
 			return data
 
-		row = self.read()
-
-		log_delta = (row["time"] - self.t0_log) / float(settings.csv_rate)
+		log_delta = (self.next["time"] - self.t0_log) / float(settings.csv_rate)
 		time_delta = time.time() - self.t0_time
 
 		while time_delta <= log_delta:
@@ -54,17 +58,19 @@ class SourceCSV (Source):
 			#------------------------------------------------------------------------
 			time.sleep(0.1)
 			time_delta = time.time() - self.t0_time
-			
-		"""
+
 		while time_delta >= log_delta:
 			#------------------------------------------------------------------------
 			# TODO
 			# skip over multiple readings
 			#------------------------------------------------------------------------
-			found = True
-			self.set_data(self.next)
-			self.next = self.read()
+			data = self.next
+			self.read()
 			log_delta = (self.next["time"] - self.t0_log) / float(settings.csv_rate)
-		"""
 
-		return row
+		return data
+
+
+	@property
+	def should_log(self):
+		return False
