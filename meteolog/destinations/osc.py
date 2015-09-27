@@ -1,5 +1,5 @@
 import time
-import OSC
+import liblo
 
 from .destination import Destination
 
@@ -8,19 +8,13 @@ class DestinationOSC (Destination):
 		self.host = host
 		self.port = port
 
-		self.osc_client = OSC.OSCClient()
-		self.osc_client.connect((host, port))
+		self.osc_host = liblo.Address(host, port)
 
 	def sendMsg(self, address, *args):
-		msg = OSC.OSCMessage(address)
-		msg.extend(list(args))
-		try:
-			self.osc_client.send(msg)
-		except OSC.OSCClientError:
-			#------------------------------------------------------------------------
-			# Most likely because this client isn't listening
-			#------------------------------------------------------------------------
-			pass
+		liblo.send(self.osc_host, address, *args)
+		#------------------------------------------------------------------------
+		# Most likely because this client isn't listening
+		#------------------------------------------------------------------------
 
 	def send(self, data):
 		#--------------------------------------------------------------
@@ -56,3 +50,4 @@ class DestinationOSC (Destination):
 				# anything yet)
 				#------------------------------------------------------------------------
 				pass
+
