@@ -18,9 +18,12 @@ class DestinationStdout (Destination):
 		#--------------------------------------------------------------
 		print "%-20s" % time.strftime(settings.time_format, time.localtime(data["time"])),
 		for key in settings.fields:
-			values = "[%.2f, %.2f]" % (
-				data[key].value,
-				data[key].normalised
-			)
-			print "%-20s" % values,
+			if data[key].value is not None:
+				values = "[%.2f, %.2f]" % (
+					data[key].value,
+					data[key].normalised
+				)
+				print "%-20s" % values,
+			else:
+				print "%-20s" % "",
 		print ""
