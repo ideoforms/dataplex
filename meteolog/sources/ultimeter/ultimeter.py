@@ -100,6 +100,7 @@ class Ultimeter:
 		#------------------------------------------------------------------------
 		self.set_date()
 		self.set_data_logger()
+		# self.set_pressure(1000)
 
 		return self.port.getCTS()
 
@@ -132,8 +133,12 @@ class Ultimeter:
 	def set_data_logger(self):
 		# >I
 		# Set output mode to Data Logger Mode (continuous output)
-		time.sleep(1)
+		time.sleep(0.5)
 		self.port.write(">I\n")
+	
+	def set_pressure(self, pressure):
+		time.sleep(0.5)
+		self.port.write(">E%05d" % (pressure * 10))
 
 	def read_serial(self):
 		""" Read loop that continuously reads CR-delimited serial data.
@@ -168,8 +173,9 @@ class Ultimeter:
 							print "*** error reading serial: %s" % e
 							break
 						n = self.port.inWaiting()
-					time.sleep(0.02)
-			except:
+					time.sleep(0.04)
+			except Exception, e:
+				print "Exception: %s" % e
 				pass
 
 			# reset data if we've lost connection so we don't keep sending
@@ -239,6 +245,13 @@ class Ultimeter:
 				# convert to inches
 				#------------------------------------------------------------------------
 				value = value / 100.0
+
+			elif field == "pressure":
+				#------------------------------------------------------------------------
+				# unit = 0.1 hPa
+				# convert to hPa
+				#------------------------------------------------------------------------
+				value = value / 10.0
 				
 			self.values[field] = value
 
