@@ -58,7 +58,8 @@ class Collector:
 		#--------------------------------------------------------------
 		# by default, output to a logfile and stdout.
 		#--------------------------------------------------------------
-		self.destinations.append(DestinationLog())
+		if self.source.should_log:
+			self.destinations.append(DestinationLog())
 		self.destinations.append(DestinationStdout())
 
 		#--------------------------------------------------------------
@@ -69,8 +70,7 @@ class Collector:
 			osc_host, osc_port = destination_address.split(":")
 			destination = DestinationOSC(osc_host, int(osc_port))
 
-			if settings.debug:
-				print "connecting: %s, %s" % (osc_host, osc_port)
+			print "connecting: %s, %s" % (osc_host, osc_port)
 
 			self.destinations.append(destination)
 
