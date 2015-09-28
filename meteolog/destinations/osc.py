@@ -43,7 +43,8 @@ class DestinationOSC (Destination):
 				value = record.value
 				norm = record.normalised
 
-				self.sendMsg("/weather/%s" % name, value, norm)
+				if value is not None:
+					self.sendMsg("/weather/%s" % name, value, norm)
 			except IndexError:
 				#------------------------------------------------------------------------
 				# haven't yet got any data for this field (might not have read

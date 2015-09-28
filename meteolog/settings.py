@@ -7,7 +7,8 @@ debug = False
 #----------------------------------------------------------------------
 # I/O setup
 #----------------------------------------------------------------------
-source = SOURCE_ULTIMETER
+sources = [ SOURCE_ULTIMETER, SOURCE_WEBCAM ]
+sources = [ SOURCE_WEBCAM ]
 logfile = "logs/weather-data.%Y%m%d.%H%M%S.csv"
 time_format = "%Y/%m/%d-%H:%M:%S"
 
@@ -43,6 +44,7 @@ uniq = False
 # network config
 #----------------------------------------------------------------------
 osc_destinations = [ "localhost:7400", "localhost:6100", "localhost:58000", "localhost:58001" ]
+# osc_destinations = [ "localhost:58001", "localhost:58000" ]
 
 use_peak = {
 	"battery"		: False,

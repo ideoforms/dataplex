@@ -29,24 +29,32 @@ class Collector:
 		# create our collector object, adopting whatever mode is
 		# selected in settings.source.
 		#--------------------------------------------------------------
-		if settings.source == SOURCE_PAKBUS:
-			self.source = SourcePakbus()
-		elif settings.source == SOURCE_ULTIMETER:
-			self.source = SourceUltimeter()
-		elif settings.source == SOURCE_CSV:
-			self.source = SourceCSV(settings.csv_file)
+
+		self.sources = []
+		for source in settings.sources:
+			if source == SOURCE_PAKBUS:
+				self.sources.append(SourcePakbus())
+			elif source == SOURCE_ULTIMETER:
+				self.sources.append(SourceUltimeter())
+			elif source == SOURCE_CSV:
+				self.sources.append(SourceCSV(settings.csv_file))
+			elif source == SOURCE_WEBCAM:
+				self.sources.append(SourceWebcam())
 
 		#--------------------------------------------------------------
 		# init: DATA
 		#--------------------------------------------------------------
-		settings.fields = self.source.fields
+		settings.fields = []
+		for source in self.sources:
+			settings.fields += source.fields
 		settings.fields = filter(lambda n: n != "time", settings.fields)
 
 		self.data = {}
 
-		for name in self.source.fields:
-			item = ECDFNormaliser(settings.global_history, settings.recent_history)
-			self.data[name] = item
+		for source in self.sources:
+			for name in source.fields:
+				item = ECDFNormaliser(settings.global_history, settings.recent_history)
+				self.data[name] = item
 
 		#--------------------------------------------------------------
 		# init: DESTINATIONS
@@ -58,7 +66,7 @@ class Collector:
 		#--------------------------------------------------------------
 		# by default, output to a logfile and stdout.
 		#--------------------------------------------------------------
-		if self.source.should_log:
+		if filter(lambda source: source.should_log, self.sources):
 			self.destinations.append(DestinationLog())
 		self.destinations.append(DestinationStdout())
 
@@ -81,7 +89,9 @@ class Collector:
 				# eternal loop. pull the latest data and output to screen.
 				#--------------------------------------------------------------
 				try:
-					record = self.source.collect()
+					record = {}
+					for source in self.sources:
+						record.update(source.collect())
 				except StopIteration:
 					#--------------------------------------------------------------
 					# TODO: we should throw this when a CSV file has finished
@@ -106,10 +116,13 @@ class Collector:
 				#--------------------------------------------------------------
 				# send our current data to each destination
 				#--------------------------------------------------------------
+				time.sleep(settings.serial_sleep)
+				"""
 				if settings.source == SOURCE_PAKBUS or settings.source == SOURCE_ULTIMETER:
 					time.sleep(settings.serial_sleep)
 				elif settings.source == SOURCE_CSV:
 					time.sleep(settings.csv_sleep)
+				"""
 
 		except KeyboardInterrupt:
 			#--------------------------------------------------------------
@@ -152,7 +165,6 @@ class Collector:
 			elif key == "-r":
 				settings.csv_rate = float(value)
 			elif key == "-n":
-				print "smoothing disabled"
 				for key, value in settings.smoothing.items():
 					settings.smoothing[key] = 0.0
 			elif key == "-h":
