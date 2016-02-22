@@ -14,7 +14,7 @@ from .destinations import *
 from simutils import mean, stddev, AttributeDictionary, ECDFNormaliser
 
 
-class Collector:
+class Server:
 	def __init__(self):
 		#--------------------------------------------------------------
 		# unbuffered stdout for launchctl logging
@@ -40,6 +40,8 @@ class Collector:
 				self.sources.append(SourceCSV(settings.csv_file))
 			elif source == SOURCE_WEBCAM:
 				self.sources.append(SourceWebcam())
+			elif source == SOURCE_AUDIO:
+				self.sources.append(SourceAudio())
 
 		#--------------------------------------------------------------
 		# init: DATA
@@ -77,9 +79,11 @@ class Collector:
 		for destination_address in settings.osc_destinations:
 			osc_host, osc_port = destination_address.split(":")
 			destination = DestinationOSC(osc_host, int(osc_port))
+			self.destinations.append(destination)
 
-			print "connecting: %s, %s" % (osc_host, osc_port)
-
+		for destination_address in settings.jdp_destinations:
+			osc_host, osc_port = destination_address.split(":")
+			destination = DestinationJDP(osc_host, int(osc_port))
 			self.destinations.append(destination)
 
 	def run(self):
@@ -102,10 +106,25 @@ class Collector:
 				#--------------------------------------------------------------
 				# Set time value, and record any values that are present.
 				#--------------------------------------------------------------
-				self.data["time"] = record["time"]
+				if "time" in record:
+					self.data["time"] = record["time"]
+				else:
+					self.data["time"] = time.time()
+
+				#--------------------------------------------------------------
+				# If we've not got any data except time, skip this iteration.
+				#--------------------------------------------------------------
+				if len(record) == 1:
+					continue
+
 				for key in settings.fields:
 					if key in record:
 						self.data[key].register(record[key])
+
+				if filter(lambda field: self.data[field].value is None, settings.fields):
+					print "Not yet got data for all fields, skipping..." 
+					time.sleep(0.5)
+					continue
 
 				#--------------------------------------------------------------
 				# send our current data to each destination
@@ -116,13 +135,10 @@ class Collector:
 				#--------------------------------------------------------------
 				# send our current data to each destination
 				#--------------------------------------------------------------
-				time.sleep(settings.serial_sleep)
-				"""
-				if settings.source == SOURCE_PAKBUS or settings.source == SOURCE_ULTIMETER:
-					time.sleep(settings.serial_sleep)
-				elif settings.source == SOURCE_CSV:
+				if settings.sources == [ "SOURCE_CSV" ]:
 					time.sleep(settings.csv_sleep)
-				"""
+				else:
+					time.sleep(settings.serial_sleep)
 
 		except KeyboardInterrupt:
 			#--------------------------------------------------------------
@@ -154,12 +170,12 @@ class Collector:
 
 		for key, value in flags:
 			if key == "-f":
-				settings.source = SOURCE_CSV
+				settings.sources = [ SOURCE_CSV ]
 				settings.csv_file = value
 			elif key == "-p":
-				settings.source = SOURCE_PAKBUS
+				settings.sources = [ SOURCE_PAKBUS ]
 			elif key == "-u":
-				settings.source = SOURCE_ULTIMETER
+				settings.sources = [ SOURCE_ULTIMETER ]
 			elif key == "-d":
 				settings.debug = True
 			elif key == "-r":

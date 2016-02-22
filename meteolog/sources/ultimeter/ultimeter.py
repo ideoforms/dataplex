@@ -86,6 +86,7 @@ class Ultimeter:
 			interfaces = sorted(interfaces)
 			if interfaces:
 				self.port_name = interfaces[0]
+				print "Using port %s" % self.port_name
 
 		if self.port_name is None:
 			raise Exception, "No serial port found, please specify."

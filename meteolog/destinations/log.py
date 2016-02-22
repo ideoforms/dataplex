@@ -10,7 +10,7 @@ class DestinationLog (Destination):
 		# start writing to output logfile.
 		#--------------------------------------------------------------
 		logfile = time.strftime(settings.logfile)
-		self.logfd = open(logfile, "w")
+		self.logfd = open(logfile, "w", 0)
 		self.logwriter = csv.writer(self.logfd)
 		self.logwriter.writerow([ "time" ] + settings.fields)
 
@@ -18,8 +18,10 @@ class DestinationLog (Destination):
 		#--------------------------------------------------------------
 		# write the latest set of data to logfile.
 		#--------------------------------------------------------------
+		# for key in settings.fields:
+		#	print "%s - %s" % (key, data[key].value)
 		now = time.strftime(settings.time_format, time.localtime(data["time"]))
-		self.logwriter.writerow([ now ] + [ data[key].value for key in settings.fields ])
+		self.logwriter.writerow([ now ] + [ "%.3f" % data[key].value for key in settings.fields ])
 
 	def close(self):
 		self.logfd.close()

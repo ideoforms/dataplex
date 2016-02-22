@@ -36,7 +36,7 @@ class SourceWebcam (Source):
 			mean_bgr_image = np.array([ [ central_bgr ] ])
 
 			zoom = 10
-			zoomed = scipy.ndimage.zoom(mean_bgr_image, (HEIGHT, WIDTH, 1), order = 0)
+			zoomed = scipy.ndimage.zoom(mean_bgr_image, (self.height, self.width, 1), order = 0)
 			display = np.concatenate((frame, zoomed), axis = 1)
 			display = scipy.ndimage.zoom(display, (zoom, zoom, 1), order = 0)
 			cv2.imshow('frame', display)
@@ -47,7 +47,7 @@ class SourceWebcam (Source):
 		rgb = list(reversed(central_bgr / 255.0))
 		hue, saturation, brightness = colorsys.rgb_to_hsv(*rgb)
 
-		data = { "hue" : hue, "brightness" : brightness } 
+		data = { "hue" : hue, "brightness" : brightness, "saturation" : saturation } 
 
 		import time
 		data["time"] = time.time()
@@ -56,5 +56,5 @@ class SourceWebcam (Source):
 
 	@property
 	def fields(self):
-		return [ "hue", "brightness" ]
+		return [ "hue", "saturation", "brightness" ]
 

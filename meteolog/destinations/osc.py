@@ -11,10 +11,12 @@ class DestinationOSC (Destination):
 		self.osc_host = liblo.Address(host, port)
 
 	def sendMsg(self, address, *args):
-		liblo.send(self.osc_host, address, *args)
-		#------------------------------------------------------------------------
-		# Most likely because this client isn't listening
-		#------------------------------------------------------------------------
+		try:
+			liblo.send(self.osc_host, address, *args)
+		except IOError:
+			# sometimes happens if we send to a UDP port that's not open
+			# (is this just certain versions of liblo?)
+			pass
 
 	def send(self, data):
 		#--------------------------------------------------------------
@@ -40,8 +42,8 @@ class DestinationOSC (Destination):
 			# why do we need to send min/max values?
 			#--------------------------------------------------------------
 			try:
-				value = record.value
-				norm = record.normalised
+				value = float(record.value)
+				norm = float(record.normalised)
 
 				if value is not None:
 					self.sendMsg("/weather/%s" % name, value, norm)
