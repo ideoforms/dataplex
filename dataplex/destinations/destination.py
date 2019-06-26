@@ -1,2 +1,2 @@
 class Destination(object):
-	pass
+    pass
