@@ -1,14 +1,17 @@
-import numpy as np
-import scipy.ndimage
-import colorsys
-import time
-import cv2
+try:
+	import numpy as np
+	import scipy.ndimage
+	import colorsys
+	import time
+	import cv2
+except:
+	print("Skipping source: Webcam")
 
 from .. import settings
 from .source import Source
 
 class SourceWebcam (Source):
-	def __init__(self, camera_index = 1, render = False):
+	def __init__(self, camera_index = 0, render = False):
 		#--------------------------------------------------------------
 		# read light values from a webcam.
 		#--------------------------------------------------------------
@@ -17,8 +20,8 @@ class SourceWebcam (Source):
 		self.height = 24
 
 		self.capture = cv2.VideoCapture(camera_index)
-		self.capture.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH, self.width)
-		self.capture.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, self.height)
+		self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+		self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
 
 	def collect(self):
 		""" Capture a frame. """
@@ -30,7 +33,7 @@ class SourceWebcam (Source):
 		#------------------------------------------------------------------------
 
 		mean_bgr = np.sum(frame, axis = (0, 1))
-		central_bgr = frame[len(frame) / 2][len(frame[0]) / 2]
+		central_bgr = frame[len(frame) // 2][len(frame[0]) // 2]
 
 		if self.render:
 			mean_bgr_image = np.array([ [ central_bgr ] ])
@@ -48,9 +51,6 @@ class SourceWebcam (Source):
 		hue, saturation, brightness = colorsys.rgb_to_hsv(*rgb)
 
 		data = { "hue" : hue, "brightness" : brightness, "saturation" : saturation } 
-
-		import time
-		data["time"] = time.time()
 
 		return data
 

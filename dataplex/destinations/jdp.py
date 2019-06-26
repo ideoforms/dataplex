@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+
 
 import jdp
 import pprint
@@ -12,7 +12,7 @@ class DestinationJDP (Destination):
 
 	def send(self, data):
 		structure = {}
-		for name, record in data.items():
+		for name, record in list(data.items()):
 			try:
 				#------------------------------------------------------------------------
 				# For ECDFNormaliser objects, pass their dictionary of properties.

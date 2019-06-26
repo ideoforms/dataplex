@@ -74,7 +74,7 @@ LS_PAUSE    = 0b1100
 #
 # Global variables
 #
-if not vars().has_key('transact'):
+if 'transact' not in vars():
     transact = 0     # Running 8-bit transaction counter (initialized only if it does not exist)
 
 
@@ -425,7 +425,7 @@ def pkt_devconfig_set_settings_cmd(DstNodeId, SrcNodeId, Settings = [], Security
 
     # Encode setting Id, length and value
     for setting in Settings:
-        if setting.has_key('SettingId') and setting.has_key('SettingValue'):
+        if 'SettingId' in setting and 'SettingValue' in setting:
             msg += encode_bin(['UInt2', 'UInt2', 'ASCII'], [setting['SettingId'], len(setting['SettingValue']), setting['SettingValue']])
 
     pkt = hdr + msg
@@ -811,7 +811,7 @@ def parse_tabledef(raw):
 
             # Convert fieldtype to ASCII FieldType (e.g. 'FP4') if possible, else return numerical value
             fld['FieldType'] = fieldtype & 0x7F # only Bits 0..6
-            for Type in datatype.keys():
+            for Type in list(datatype.keys()):
                 if fld['FieldType'] == datatype[Type]['code']:
                     fld['FieldType'] = Type
                     break
@@ -981,7 +981,7 @@ def parse_collectdata(raw, tabledef, FieldNbr = []):
                 if FieldNbr:    # explicit field numbers provided
                     fields = FieldNbr
                 else:           # default: generate list of all fields in table
-                    fields = range(1, len(tabledef[frag['TableNbr'] - 1]['Fields']) + 1)
+                    fields = list(range(1, len(tabledef[frag['TableNbr'] - 1]['Fields']) + 1))
 
                 for field in fields:
                     fieldname = tabledef[frag['TableNbr'] - 1]['Fields'][field - 1]['FieldName']
@@ -993,7 +993,7 @@ def parse_collectdata(raw, tabledef, FieldNbr = []):
                     else:
                         record['Fields'][fieldname], size = decode_bin(dimension * [fieldtype], raw[offset:])
                     offset += size
-                print "parsed fields"
+                print("parsed fields")
                 frag['RecFrag'].append(record)
 
         recdata.append(frag)
@@ -1153,7 +1153,7 @@ def decode_bin(Types, buff, length = 1):
         size = datatype[Type]['size']
         # print "decoding, buf size %d, offset %d" % (len(buff), offset)
         if size > len(buff) - offset:
-            print "**** decode_bin: no more data! ***"
+            print("**** decode_bin: no more data! ***")
             return [], 0
 
         if Type == 'ASCIIZ': # special handling: nul-terminated string
@@ -1278,7 +1278,7 @@ def clock_sync(s, DstNodeId, SrcNodeId, SecurityCode = 0x0000, min_adjust = 0.1,
         t2 = time.time() # timestamp directly after receiving clock response
 
         # Calculate time difference
-        if msg.has_key('Time'):
+        if 'Time' in msg:
             logtime = nsec_to_time(msg['Time']) - offset # time reported from data logger (UTC)
             delay = (t2 - t1) / 2 # time estimated delay from communication protocol
             td.append(logtime - reftime + delay) # build delay-corrected list of time differences
@@ -1411,7 +1411,7 @@ def filedownload(s, DstNodeId, SrcNodeId, FileName, FileData, SecurityCode = 0x0
         try:
             RespCode = msg['RespCode']
             # End loop if response code <> 0
-            if RespCode <> 0:
+            if RespCode != 0:
                 break
             # Append file data
             FileOffset += Swath
@@ -1504,7 +1504,7 @@ def collect_data(s, DstNodeId, SrcNodeId, TableDef, TableName, FieldNames = [], 
     # Get table number
     tablenbr = get_TableNbr(TableDef, TableName)
     if tablenbr is None:
-        raise StandardError('table %s not found in table definition' % TableName)
+        raise Exception('table %s not found in table definition' % TableName)
 
     # Get table definition signature
     tabledefsig = TableDef[tablenbr - 1]['Signature']
@@ -1530,7 +1530,7 @@ def collect_data(s, DstNodeId, SrcNodeId, TableDef, TableName, FieldNames = [], 
         raise Warning('field names not resolved for table %s: %s' % (TableName, fieldnames))
 
     # Send collect data request
-    print "requesting data from table %d" % tablenbr
+    print("requesting data from table %d" % tablenbr)
     pkt, TranNbr = pkt_collectdata_cmd(DstNodeId, SrcNodeId, tablenbr, tabledefsig, FieldNbr = fieldnbr, CollectMode = CollectMode, P1 = P1, P2 = P2, SecurityCode = SecurityCode)
     send(s, pkt)
     hdr, msg = wait_pkt(s, DstNodeId, SrcNodeId, TranNbr)
@@ -1578,7 +1578,7 @@ def open_socket(Host, Port = 6785, Timeout = 30):
         af, socktype, proto, canonname, sa = res
         try:
             s = socket.socket(af, socktype, proto)
-        except socket.error, msg:
+        except socket.error as msg:
             s = None
             continue
         try:
@@ -1603,7 +1603,7 @@ def open_serial(port = "/dev/cu.HL340-04100000"):
         s.setTimeout(1)
         s.setWriteTimeout(1)
     except serial.SerialException:
-        print "couldn't open serial port %s: %s" % (port, sys.exc_info()[0])
+        print("couldn't open serial port %s: %s" % (port, sys.exc_info()[0]))
 
     return s
 

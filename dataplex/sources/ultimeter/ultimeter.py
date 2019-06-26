@@ -28,7 +28,7 @@ DATA_FIELDS = [
 ]
 
 class Ultimeter:
-	def __init__(self, debug = False):
+	def __init__(self, debug = False, port = None):
 		self.port = None
 		self.debug = debug
 		self.buffer = ""
@@ -39,7 +39,7 @@ class Ultimeter:
 		#------------------------------------------------------------------------
 		self.values = {}
 
-		self.port_name = None
+		self.port_name = port
 		self.read_thread = None
 
 		self.open()
@@ -49,7 +49,7 @@ class Ultimeter:
 		# start running, and connect when serial port available
 		#------------------------------------------------------------------------
 		if self.read_thread:
-			print "*** already running background poll, refusing to start another thread"
+			print("*** already running background poll, refusing to start another thread")
 			return
 		else:
 			self.read_thread = threading.Thread(target = self.read_serial)
@@ -62,7 +62,7 @@ class Ultimeter:
 
 	def trace(self, text):
 		if self.debug:
-			print text
+			print(text)
 
 	@property
 	def is_open(self):
@@ -76,9 +76,10 @@ class Ultimeter:
 		if self.is_open:
 			return
 
-		if port_name is None:
+		if port_name is not None:
 			self.port_name = port_name
 
+		if self.port_name is None:
 			#------------------------------------------------------------------------
 			# see if we can find a default FTDI-style interface ID
 			#------------------------------------------------------------------------
@@ -86,14 +87,14 @@ class Ultimeter:
 			interfaces = sorted(interfaces)
 			if interfaces:
 				self.port_name = interfaces[0]
-				print "Using port %s" % self.port_name
+				print(("Using port %s" % self.port_name))
 
 		if self.port_name is None:
-			raise Exception, "No serial port found, please specify."
+			raise Exception("No serial port found, please specify.")
 
-		self.port = serial.Serial(baudrate = 2400, timeout = 0.1)
-		self.port.setPort(self.port_name)
-		self.port.open()
+		self.port = serial.Serial(port = self.port_name, baudrate = 2400, timeout = 0.1)
+		# self.port.setPort(self.port_name)
+		# self.port.open()
 
 		#------------------------------------------------------------------------
 		# each time we connect, set the date of the unit and switch it to
@@ -123,23 +124,23 @@ class Ultimeter:
 		now = datetime.datetime.now() 
 
 		# calculate day of year (number from 0)
-		day_of_year = datetime.datetime(1, now.month, now.day).toordinal() - 1
+		day_of_year = datetime.datetime(now.year, now.month, now.day).toordinal() - 1
 
 		# calculate minute of day
 		minute_of_day = now.minute + 60 * now.hour
-		self.port.write(">U%04d\r\n" % now.year)
-		self.port.write(">A%04d%04d\r\n" % (day_of_year, minute_of_day))
+		self.port.write(">U%04d\r\n".encode() % now.year)
+		self.port.write(">A%04d%04d\r\n".encode() % (day_of_year, minute_of_day))
 		# print " - written time settings(day of year = %d, minute of day = %d)" % (day_of_year, minute_of_day)
 
 	def set_data_logger(self):
 		# >I
 		# Set output mode to Data Logger Mode (continuous output)
 		time.sleep(0.5)
-		self.port.write(">I\n")
+		self.port.write(">I\n".encode())
 	
 	def set_pressure(self, pressure):
 		time.sleep(0.5)
-		self.port.write(">E%05d" % (pressure * 10))
+		self.port.write(">E%05d".encode() % (pressure * 10))
 
 	def read_serial(self):
 		""" Read loop that continuously reads CR-delimited serial data.
@@ -157,11 +158,12 @@ class Ultimeter:
 					else:
 						empty_tries = empty_tries + 1
 						if empty_tries > 50:
-							raise Exception, "No data read, bailing"
+							raise Exception("No data read, bailing")
 					while n:
 						try:
 							text = self.port.read(size = n)
 							if len(text) == 0: continue
+							text = text.decode()
 							for char in text:
 								if char == "\n" or char == "\n":
 									if self.buffer:
@@ -170,19 +172,19 @@ class Ultimeter:
 								else:
 									self.buffer += char
 							self.trace("[POLL] read: %s" % text)
-						except serial.SerialException, e:
-							print "*** error reading serial: %s" % e
+						except serial.SerialException as e:
+							print(("*** error reading serial: %s" % e))
 							break
 						n = self.port.inWaiting()
 					time.sleep(0.04)
-			except Exception, e:
-				print "Exception: %s" % e
+			except Exception as e:
+				print(("Exception: %s" % e))
 				pass
 
 			# reset data if we've lost connection so we don't keep sending
 			self.values = {}
 			self.close()
-			print "Trying to open port..."
+			print("Trying to open port...")
 			time.sleep(1)
 
 	def handle(self, message):
@@ -264,8 +266,8 @@ class Ultimeter:
 
 def main():
 	def handler(values):
-		for key, value in values.items():
-			print "%s - %f" % (key, value)
+		for key, value in list(values.items()):
+			print(("%s - %f" % (key, value)))
 
 	ultimeter = Ultimeter()
 	ultimeter.handler = handler

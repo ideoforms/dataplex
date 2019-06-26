@@ -34,8 +34,8 @@ class SourcePakbus(Source):
 		#--------------------------------------------------------------
 		try:
 			self.serial = pakbus.open_serial(settings.PAKBUS_DEV)
-		except Exception, e:
-			print "Couldn't open serial device %s (%s)" % (settings.pakbus_dev, e)
+		except Exception as e:
+			print("Couldn't open serial device %s (%s)" % (settings.pakbus_dev, e))
 			sys.exit(1)
 
 		msg = pakbus.ping_node(self.serial, PAKBUS_NODEID, PAKBUS_MYNODEID)
@@ -48,7 +48,7 @@ class SourcePakbus(Source):
 		data["time"] = int(time.time())
 
 		for name in FIELDS:
-			longname = (filter(lambda n: PAKBUS_FIELD_NAMES[n] == name, PAKBUS_FIELD_NAMES.keys()))[0]
+			longname = ([n for n in list(PAKBUS_FIELD_NAMES.keys()) if PAKBUS_FIELD_NAMES[n] == name])[0]
 
 			#--------------------------------------------------------------
 			# get each of our parameters from the device.

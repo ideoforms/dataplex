@@ -26,7 +26,7 @@ class DestinationOSC (Destination):
 
 		self.sendMsg("/weather/time", int(data["time"]))
 
-		for name, record in data.items():
+		for name, record in list(data.items()):
 			if name == "time":
 				continue
 

@@ -2,7 +2,7 @@
 # needed to import a package whose name clashes with my own:
 # http://stackoverflow.com/questions/4816595/how-do-i-import-a-module-whose-name-clashes-with-a-module-in-my-package
 #------------------------------------------------------------------------
-from __future__ import absolute_import 
+ 
 
 import os
 import csv
@@ -20,7 +20,7 @@ class SourceCSV (Source):
 		self.fd = open(filename, "r")
 		self.rate = rate
 		self.reader = csv.reader(self.fd)
-		self.fields = self.reader.next()
+		self.fields = next(self.reader)
 
 		self.t0_log = None
 		self.t0_time = None
@@ -28,11 +28,11 @@ class SourceCSV (Source):
 		self.read()
 
 	def read(self):
-		row = self.reader.next()
+		row = next(self.reader)
 		row[0] = time.mktime(time.strptime(row[0], settings.time_format))
 		row = dict([ (self.fields[n], float(value)) for n, value in enumerate(row) ])
 
-		self.next = row
+		self.next_row = row
 
 		return row
 
@@ -43,13 +43,13 @@ class SourceCSV (Source):
 			#--------------------------------------------------------------
 			# first field is always timestamp.
 			#--------------------------------------------------------------
-			self.t0_log  = self.next["time"]
+			self.t0_log  = self.next_row["time"]
 			self.t0_time = time.time()
-			data = self.next
+			data = self.next_row
 			self.read()
 			return data
 
-		log_delta = (self.next["time"] - self.t0_log) / float(settings.csv_rate)
+		log_delta = (self.next_row["time"] - self.t0_log) / float(settings.csv_rate)
 		time_delta = time.time() - self.t0_time
 
 		while time_delta <= log_delta:
@@ -64,9 +64,9 @@ class SourceCSV (Source):
 			# TODO
 			# skip over multiple readings
 			#------------------------------------------------------------------------
-			data = self.next
+			data = self.next_row
 			self.read()
-			log_delta = (self.next["time"] - self.t0_log) / float(settings.csv_rate)
+			log_delta = (self.next_row["time"] - self.t0_log) / float(settings.csv_rate)
 
 		return data
 

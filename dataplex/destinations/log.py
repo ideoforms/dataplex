@@ -10,7 +10,7 @@ class DestinationLog (Destination):
 		# start writing to output logfile.
 		#--------------------------------------------------------------
 		logfile = time.strftime(settings.logfile)
-		self.logfd = open(logfile, "w", 0)
+		self.logfd = open(logfile, "w")
 		self.logwriter = csv.writer(self.logfd)
 		self.logwriter.writerow([ "time" ] + settings.fields)
 
