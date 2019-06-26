@@ -27,6 +27,9 @@ class SourceCSV (Source):
 
         self.read()
 
+    def __str__(self):
+        return("CSV (%s)" % os.path.basename(self.filename))
+
     def read(self):
         row = next(self.reader)
         row[0] = time.mktime(time.strptime(row[0], settings.time_format))

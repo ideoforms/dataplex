@@ -10,6 +10,9 @@ class DestinationOSC (Destination):
 
         self.osc_host = liblo.Address(host, port)
 
+    def __str__(self):
+        return "OSC (%s:%d)" % (self.host, self.port)
+
     def sendMsg(self, address, *args):
         try:
             liblo.send(self.osc_host, address, *args)

@@ -7,23 +7,24 @@ from . import ultimeter
 FIELDS = [ "temperature", "wind_speed", "wind_dir", "rain", "pressure" ]
 
 class SourceUltimeter(Source):
-	def __init__(self, port = None):
-		self.ultimeter = ultimeter.Ultimeter(port = port)
-		self.ultimeter.start()
+    def __init__(self, port = None):
+        self.ultimeter = ultimeter.Ultimeter(port = port)
+        self.ultimeter.start()
 
-	def collect(self):
-		data = {}
+    def __str__(self):
+        return("Ultimeter")
 
-		for name, value in list(self.ultimeter.values.items()):
-			data[name] = self.ultimeter.values[name]
+    def collect(self):
+        data = {}
 
-		data["time"] = int(time.time())
+        for name, value in list(self.ultimeter.values.items()):
+            data[name] = self.ultimeter.values[name]
 
-		return data
+        return data
 
-	def close(self):
-		self.ultimeter.close()
-	
-	@property
-	def fields(self):
-		return FIELDS
+    def close(self):
+        self.ultimeter.close()
+    
+    @property
+    def fields(self):
+        return FIELDS

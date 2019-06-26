@@ -7,6 +7,9 @@ class DestinationStdout (Destination):
     def __init__(self):
         self.phase = 0
 
+    def __str__(self):
+        return "Standard output"
+
     def send(self, data):
         #--------------------------------------------------------------
         # add a heading every N lines for readability.

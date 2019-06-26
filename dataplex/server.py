@@ -86,7 +86,12 @@ class Server:
             destination = DestinationJDP(osc_host, int(osc_port))
             self.destinations.append(destination)
 
-        for 
+        print("Sources: ")
+        for source in self.sources:
+            print(" - %s" % source)
+        print("Destinations: ")
+        for destination in self.destinations:
+            print(" - %s" % destination)
 
     def run(self):
         try:

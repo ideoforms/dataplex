@@ -1,3 +1,4 @@
+import os
 import csv
 import time
 
@@ -5,14 +6,17 @@ from .destination import Destination
 from .. import settings
 
 class DestinationLog (Destination):
-    def __init__(self):
+    def __init__(self, path_template=settings.logfile):
         #--------------------------------------------------------------
         # start writing to output logfile.
         #--------------------------------------------------------------
-        logfile = time.strftime(settings.logfile)
-        self.logfd = open(logfile, "w")
+        self.path = time.strftime(path_template)
+        self.logfd = open(self.path, "w")
         self.logwriter = csv.writer(self.logfd)
         self.logwriter.writerow([ "time" ] + settings.fields)
+
+    def __str__(self):
+        return "Log (%s)" % (os.path.basename(self.path))
 
     def send(self, data):
         #--------------------------------------------------------------

@@ -1,15 +1,11 @@
 from dataplex.constants import *
 
-# fields = [ "wind_speed", "wind_dir", "temperature", "humidity", "pressure", "rain", "sun" ]
-
 debug = False
 
 #----------------------------------------------------------------------
 # I/O setup
 #----------------------------------------------------------------------
 sources = [ SOURCE_ULTIMETER ]
-# sources = [ SOURCE_AUDIO ]
-# sources = [ SOURCE_WEBCAM, SOURCE_METOFFICE ]
 logfile = "logs/weather-data.%Y%m%d.%H%M%S.csv"
 time_format = "%Y/%m/%d-%H:%M:%S"
 
@@ -44,21 +40,17 @@ uniq = False
 #----------------------------------------------------------------------
 # network config
 #----------------------------------------------------------------------
-# osc_destinations = [ "localhost:7400", "localhost:6100", "localhost:58000", "localhost:58001" ]
-# jdp_destinations = [ "localhost:11000" ]
 jdp_destinations = [ ]
-# osc_destinations = [ "localhost:58001", "localhost:58000" ]
-osc_destinations = [ ] # "localhost:58000" ]
-# jdp_destinations = []
+osc_destinations = [ "localhost:7400" ]
 
 use_peak = {
-    "battery"        : False,
-    "temperature"    : False,
-    "humidity"        : False,
+    "battery"       : False,
+    "temperature"   : False,
+    "humidity"      : False,
     "wind_speed"    : False,
-    "wind_dir"        : False,
-    "rain"            : False,
-    "sun"            : False
+    "wind_dir"      : False,
+    "rain"          : False,
+    "sun"           : False
 }
 
 reverse_wind_dir = True
