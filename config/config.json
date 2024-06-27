@@ -1,0 +1,22 @@
+{
+	"sources" :
+	[
+		{
+			"type": "ultimeter",
+			"port" : "auto",
+			"interval": 0.5
+		}
+	],
+	"destinations" :
+	[
+		{
+			"type": "osc",
+			"host": "127.0.0.1",
+			"port": 44100
+		},
+		{
+			"type": "csv",
+			"path": "logs/data.%Y%m%d.%H%M%S.csv"
+		}
+	]
+}

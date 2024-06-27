@@ -3,35 +3,37 @@ import argparse
 
 from . import settings
 
+from .config import load_config
 from .sources import SourceAudio, SourceCSV, SourcePakbus, SourceUltimeter, SourceWebcam
 from .destinations import DestinationJDP, DestinationCSV, DestinationOSC, DestinationStdout
 from .statistics.ecdf import ECDFNormaliser
 
 
 class Server:
-    def __init__(self):
-        #--------------------------------------------------------------
-        # init: SOURCE
-        # create our collector object, adopting whatever mode is
-        # selected in settings.sources
-        #--------------------------------------------------------------
-        self.sources = []
-        for source in settings.sources:
-            if source == "pakbus":
-                self.sources.append(SourcePakbus())
-            elif source == "ultimeter":
-                self.sources.append(SourceUltimeter(settings.ultimeter_port))
-            elif source == "csv":
-                self.sources.append(SourceCSV(settings.csv_file))
-            elif source == "webcam":
-                self.sources.append(SourceWebcam())
-            elif source == "audio":
-                self.sources.append(SourceAudio())
-            else:
-                raise ValueError(f"Source ID not known: f{source}")
+    def __init__(self, config_path: str = "config/config.json"):
+        config = load_config(config_path)
+        print(config)
 
         #--------------------------------------------------------------
-        # init: DATA
+        # Init: Sources
+        #--------------------------------------------------------------
+        self.sources = []
+        for source in config.sources:
+            if source.type == "pakbus":
+                self.sources.append(SourcePakbus())
+            elif source.type == "ultimeter":
+                self.sources.append(SourceUltimeter(source.port))
+            elif source.type == "csv":
+                self.sources.append(SourceCSV(settings.csv_file))
+            elif source.type == "webcam":
+                self.sources.append(SourceWebcam())
+            elif source.type == "audio":
+                self.sources.append(SourceAudio())
+            else:
+                raise ValueError(f"Source type not known: f{source.type}")
+
+        #--------------------------------------------------------------
+        # Init: Fields
         #--------------------------------------------------------------
         settings.fields = []
         for source in self.sources:
@@ -47,32 +49,26 @@ class Server:
                 self.data[name] = item
 
         #--------------------------------------------------------------
-        # init: DESTINATIONS
-        # we always want to transmit over OSC. set this up now.
-        # support specifying multiple OSC ports for multicast.
+        # Init: Destinations
         #--------------------------------------------------------------
         self.destinations = []
-
-        #--------------------------------------------------------------
-        # by default, output to a logfile and stdout.
-        #--------------------------------------------------------------
-        if [source for source in self.sources if source.should_log]:
-            self.destinations.append(DestinationCSV())
         self.destinations.append(DestinationStdout())
 
         #--------------------------------------------------------------
-        # we currently always want to transmit over OSC. set this up now.
-        # support specifying multiple OSC ports for multicast.
+        # Iterate over configured destinations
         #--------------------------------------------------------------
-        for destination_address in settings.osc_destinations:
-            osc_host, osc_port = destination_address.split(":")
-            destination = DestinationOSC(osc_host, int(osc_port))
-            self.destinations.append(destination)
+        for destination in config.destinations:
+            if destination.type == "csv":
+                self.destinations.append(DestinationCSV(path_template=destination.path))
+            elif destination.type == "osc":
+                self.destinations.append(DestinationOSC(destination.host,
+                                                        destination.port))
+            elif destination.type == "jdp":
+                self.destinations.append(DestinationJDP(destination.host,
+                                                        destination.port))
+            else:
+                raise ValueError(f"Destination type not known: f{destination.type}")
 
-        for destination_address in settings.jdp_destinations:
-            osc_host, osc_port = destination_address.split(":")
-            destination = DestinationJDP(osc_host, int(osc_port))
-            self.destinations.append(destination)
 
         print("Sources: ")
         for source in self.sources:
@@ -85,7 +81,7 @@ class Server:
         try:
             while True:
                 #--------------------------------------------------------------
-                # Infinite loop: pull new data and record. 
+                # Infinite loop: pull new data and record.
                 #--------------------------------------------------------------
                 try:
                     record = {}
@@ -160,8 +156,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Run the dataplex I/O server")
     parser.add_argument("--csv-rate", type=float, help="Rate of reading CSV records versus realtime", default=1.0)
     parser.add_argument("--verbose", "-v", help="Verbose output", action="store_true")
-    parser.add_argument("-c", "--config", type=str, help="Path to config file", default="config.json")
+    parser.add_argument("-c", "--config", type=str, help="Path to JSON config file", default="config/config.json")
     args = parser.parse_args()
 
-    server = Server()
+    server = Server(config_path=args.config)
     server.run()

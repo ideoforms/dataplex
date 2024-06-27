@@ -1,5 +1,6 @@
 from ..source import Source
 from . import ultimeter
+from typing import Optional
 
 FIELDS = [
     "temperature",
@@ -10,7 +11,7 @@ FIELDS = [
 ]
 
 class SourceUltimeter(Source):
-    def __init__(self, port: str = None):
+    def __init__(self, port: Optional[str] = None):
         self.ultimeter = ultimeter.Ultimeter(port=port)
         self.ultimeter.start()
 
