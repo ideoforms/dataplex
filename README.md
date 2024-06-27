@@ -32,3 +32,7 @@ pip3 install pyaudio
 brew install numpy scipy opencv
 pip3 install opencv-python
 ```
+
+## Background
+
+dataplex was originally created in 2010 for the sound installation [Variable 4](https://jones-bulley.com/variable4/), and has been gradually updated since. It is named in homage to [Ryoji Ikeda](https://raster-media.net/shop/dataplex-2001-05).
