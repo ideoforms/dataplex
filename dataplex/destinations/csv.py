@@ -5,7 +5,7 @@ import time
 from .destination import Destination
 from .. import settings
 
-class DestinationLog (Destination):
+class DestinationCSV (Destination):
     def __init__(self, path_template=settings.logfile):
         #--------------------------------------------------------------
         # start writing to output logfile.
@@ -22,8 +22,6 @@ class DestinationLog (Destination):
         #--------------------------------------------------------------
         # write the latest set of data to logfile.
         #--------------------------------------------------------------
-        # for key in settings.fields:
-        #    print "%s - %s" % (key, data[key].value)
         now = time.strftime(settings.time_format, time.localtime(data["time"]))
         self.logwriter.writerow([ now ] + [ "%.3f" % data[key].value for key in settings.fields ])
 

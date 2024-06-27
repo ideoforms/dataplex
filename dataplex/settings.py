@@ -1,13 +1,10 @@
-from dataplex.constants import *
-
 debug = False
 
 #----------------------------------------------------------------------
 # I/O setup
 #----------------------------------------------------------------------
-# sources = [ SOURCE_ULTIMETER ]
-sources = [ SOURCE_CSV ]
-logfile = "/Users/jonesbulley/logs/weather-data.%Y%m%d.%H%M%S.csv"
+sources = ["ultimeter"]
+logfile = "logs/weather-data.%Y%m%d.%H%M%S.csv"
 time_format = "%Y/%m/%d-%H:%M:%S"
 
 #----------------------------------------------------------------------
@@ -31,7 +28,7 @@ print_interval = 40
 # how many history values shall we use for normalized/change values?
 # 3600 values at ~1200bpm is half an hour's worth of readings,
 # so if rain is registered at one tick, the normalised value will
-# remain at 1.0 for half an hour.   
+# remain at 1.0 for half an hour.
 #----------------------------------------------------------------------
 global_history = 3600
 recent_history = 360
@@ -45,17 +42,17 @@ uniq = False
 #----------------------------------------------------------------------
 # network config
 #----------------------------------------------------------------------
-jdp_destinations = [ ]
-osc_destinations = [ "127.0.0.1:7400" ]
+jdp_destinations = []
+osc_destinations = ["127.0.0.1:7400"]
 
 use_peak = {
-    "battery"       : False,
-    "temperature"   : False,
-    "humidity"      : False,
-    "wind_speed"    : False,
-    "wind_dir"      : False,
-    "rain"          : False,
-    "sun"           : False
+    "battery": False,
+    "temperature": False,
+    "humidity": False,
+    "wind_speed": False,
+    "wind_dir": False,
+    "rain": False,
+    "sun": False
 }
 
 reverse_wind_dir = True

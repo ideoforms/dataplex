@@ -1,28 +1,15 @@
-import os
-import csv
-import sys
-import math
 import time
-import getopt
+import argparse
 
 from . import settings
 
-from .constants import *
-from .sources import *
-from .destinations import *
-from .ecdf import ECDFNormaliser
+from .sources import SourceAudio, SourceCSV, SourcePakbus, SourceUltimeter, SourceWebcam
+from .destinations import DestinationJDP, DestinationCSV, DestinationOSC, DestinationStdout
+from .statistics.ecdf import ECDFNormaliser
 
 
 class Server:
     def __init__(self):
-        #--------------------------------------------------------------
-        # unbuffered stdout for launchctl logging
-        #--------------------------------------------------------------
-        # (not using right now)
-        # sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
-        #--------------------------------------------------------------
-        self.parse_args()
-
         #--------------------------------------------------------------
         # init: SOURCE
         # create our collector object, adopting whatever mode is
@@ -30,18 +17,18 @@ class Server:
         #--------------------------------------------------------------
         self.sources = []
         for source in settings.sources:
-            if source == SOURCE_PAKBUS:
+            if source == "pakbus":
                 self.sources.append(SourcePakbus())
-            elif source == SOURCE_ULTIMETER:
+            elif source == "ultimeter":
                 self.sources.append(SourceUltimeter(settings.ultimeter_port))
-            elif source == SOURCE_CSV:
+            elif source == "csv":
                 self.sources.append(SourceCSV(settings.csv_file))
-            elif source == SOURCE_WEBCAM:
+            elif source == "webcam":
                 self.sources.append(SourceWebcam())
-            elif source == SOURCE_AUDIO:
+            elif source == "audio":
                 self.sources.append(SourceAudio())
-            elif source == SOURCE_METOFFICE:
-                self.sources.append(SourceMetOffice())
+            else:
+                raise ValueError(f"Source ID not known: f{source}")
 
         #--------------------------------------------------------------
         # init: DATA
@@ -55,7 +42,8 @@ class Server:
 
         for source in self.sources:
             for name in source.fields:
-                item = ECDFNormaliser(settings.global_history, settings.recent_history)
+                item = ECDFNormaliser(settings.global_history,
+                                      settings.recent_history)
                 self.data[name] = item
 
         #--------------------------------------------------------------
@@ -69,7 +57,7 @@ class Server:
         # by default, output to a logfile and stdout.
         #--------------------------------------------------------------
         if [source for source in self.sources if source.should_log]:
-            self.destinations.append(DestinationLog())
+            self.destinations.append(DestinationCSV())
         self.destinations.append(DestinationStdout())
 
         #--------------------------------------------------------------
@@ -159,55 +147,21 @@ class Server:
                 #--------------------------------------------------------------
                 # send our current data to each destination
                 #--------------------------------------------------------------
-                if settings.sources == [ "SOURCE_CSV" ]:
+                if settings.sources == ["csv"]:
                     time.sleep(0.01)
                 else:
                     time.sleep(settings.read_interval)
 
         except KeyboardInterrupt:
-            #--------------------------------------------------------------
-            # die silently.
-            #--------------------------------------------------------------
             print("Killed by ctrl-c")
             pass
 
-    def parse_args(self):
-        def usage():
-            print("Usage: %s [-f <csv_file>] [-s]" % sys.argv[0])
-            print("  -p: input mode pakbus (Campbell Scientific)")
-            print("  -u: input mode ultimeter (Peet Bros)")
-            print("  -f: input mode .csv file")
-            print("  -r: rate of CSV reading")
-            print("  -d: debug output")
-            print("  -n: disable smoothing")
-            print("  -h: show this help")
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser("Run the dataplex I/O server")
+    parser.add_argument("--csv-rate", type=float, help="Rate of reading CSV records versus realtime", default=1.0)
+    parser.add_argument("--verbose", "-v", help="Verbose output", action="store_true")
+    parser.add_argument("-c", "--config", type=str, help="Path to config file", default="config.json")
+    args = parser.parse_args()
 
-            sys.exit(1)
-
-        #--------------------------------------------------------------
-        # pull commandline opts and update settings appropriately.
-        #--------------------------------------------------------------
-        try:
-            flags, args = getopt.getopt(sys.argv[1:], "f:pudnr:h")
-        except:
-            usage()
-
-        for key, value in flags:
-            if key == "-f":
-                settings.sources = [ SOURCE_CSV ]
-                settings.csv_file = value
-            elif key == "-p":
-                settings.sources = [ SOURCE_PAKBUS ]
-            elif key == "-u":
-                settings.sources = [ SOURCE_ULTIMETER ]
-            elif key == "-d":
-                settings.debug = True
-            elif key == "-r":
-                settings.csv_rate = float(value)
-            elif key == "-n":
-                for key, value in list(settings.smoothing.items()):
-                    settings.smoothing[key] = 0.0
-            elif key == "-h":
-                usage()
-            
-
+    server = Server()
+    server.run()
