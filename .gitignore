@@ -1,3 +1,6 @@
 .DS_Store
-logs/
+build
+dev
+logs
 *.pyc
+*.egg-info
