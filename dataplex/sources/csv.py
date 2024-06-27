@@ -41,7 +41,9 @@ class SourceCSV (Source):
         return row
 
     def collect(self):
-        """ Block until the next reading is due, based on our CSV read rate. """
+        """
+        Block until the next reading is due, based on our CSV read rate.
+        """
 
         if self.t0_log is None:
             #--------------------------------------------------------------
@@ -73,10 +75,6 @@ class SourceCSV (Source):
             log_delta = (self.next_row["time"] - self.t0_log) / float(settings.csv_rate)
 
         return data
-
-    @property
-    def should_log(self):
-        return False
 
 
 if __name__ == "__main__":

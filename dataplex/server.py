@@ -12,7 +12,6 @@ from .statistics.ecdf import ECDFNormaliser
 class Server:
     def __init__(self, config_path: str = "config/config.json"):
         config = load_config(config_path)
-        print(config)
 
         #--------------------------------------------------------------
         # Init: Sources
