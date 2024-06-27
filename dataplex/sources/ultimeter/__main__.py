@@ -1,6 +1,6 @@
-from .source import SourceUltimeter
-
 import time
+
+from .source import SourceUltimeter
 
 if __name__ == "__main__":
     source = SourceUltimeter()

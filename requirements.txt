@@ -2,4 +2,5 @@ pyserial
 pyaudio
 cython
 pyliblo
-../jdp
+numpy
+jdp

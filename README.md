@@ -1,6 +1,6 @@
 # dataplex
 
-## A multiplexing server for aggregation and distribution of real-time data and sensor inputs.
+A multiplexing server for aggregation and distribution of real-time data and sensor inputs.
 
 Supported sources:
 
@@ -29,7 +29,6 @@ pip3 install pyaudio
 ### Source: Webcam
 
 ```
-brew install numpy scipy
-brew install opencv
+brew install numpy scipy opencv
 pip3 install opencv-python
 ```

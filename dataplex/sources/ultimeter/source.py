@@ -4,7 +4,7 @@ import sys
 from ..source import Source
 from . import ultimeter
 
-FIELDS = [ "temperature", "wind_speed", "wind_dir", "rain", "pressure" ]
+FIELDS = [ "temperature", "wind_speed", "wind_dir", "rain", "humidity" ]
 
 class SourceUltimeter(Source):
     def __init__(self, port = None):

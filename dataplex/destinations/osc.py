@@ -1,5 +1,6 @@
 import time
-import liblo
+import pythonosc
+from pythonosc.udp_client import SimpleUDPClient
 
 from .destination import Destination
 
@@ -8,18 +9,13 @@ class DestinationOSC (Destination):
         self.host = host
         self.port = port
 
-        self.osc_host = liblo.Address(host, port)
+        self.osc_client = SimpleUDPClient(host, port)
 
     def __str__(self):
         return "OSC (%s:%d)" % (self.host, self.port)
 
     def sendMsg(self, address, *args):
-        try:
-            liblo.send(self.osc_host, address, *args)
-        except IOError:
-            # sometimes happens if we send to a UDP port that's not open
-            # (is this just certain versions of liblo?)
-            pass
+        self.osc_client.send_message(address, args)
 
     def send(self, data):
         #--------------------------------------------------------------

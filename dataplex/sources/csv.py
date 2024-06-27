@@ -1,9 +1,3 @@
-#------------------------------------------------------------------------
-# needed to import a package whose name clashes with my own:
-# http://stackoverflow.com/questions/4816595/how-do-i-import-a-module-whose-name-clashes-with-a-module-in-my-package
-#------------------------------------------------------------------------
- 
-
 import os
 import csv
 import time
@@ -12,10 +6,17 @@ from .. import settings
 from .source import Source
 
 class SourceCSV (Source):
-    def __init__(self, filename, rate = 1.0):
-        #--------------------------------------------------------------
-        # set up our file reader.
-        #--------------------------------------------------------------
+    def __init__(self,
+                 filename: str,
+                 rate: float = 1.0):
+        """
+        Read a CSV file.
+
+        Args:
+            filename (str): The file path to read.
+            rate (float, optional): The rate that data should be output, relative to the original
+                                    time series. Defaults to 1.0.
+        """
         self.filename = filename
         self.fd = open(filename, "r")
         self.rate = rate
@@ -28,12 +29,12 @@ class SourceCSV (Source):
         self.read()
 
     def __str__(self):
-        return("CSV (%s)" % os.path.basename(self.filename))
+        return ("CSV (%s)" % os.path.basename(self.filename))
 
     def read(self):
         row = next(self.reader)
         row[0] = time.mktime(time.strptime(row[0], settings.time_format))
-        row = dict([ (self.fields[n], float(value)) for n, value in enumerate(row) ])
+        row = dict([(self.fields[n], float(value)) for n, value in enumerate(row)])
 
         self.next_row = row
 
@@ -46,7 +47,7 @@ class SourceCSV (Source):
             #--------------------------------------------------------------
             # first field is always timestamp.
             #--------------------------------------------------------------
-            self.t0_log  = self.next_row["time"]
+            self.t0_log = self.next_row["time"]
             self.t0_time = time.time()
             data = self.next_row
             self.read()
@@ -73,7 +74,14 @@ class SourceCSV (Source):
 
         return data
 
-
     @property
     def should_log(self):
         return False
+
+
+if __name__ == "__main__":
+    source = SourceCSV("logs/weather-data.ben-lomond.2015-09-30.131839.csv", rate=0.1)
+
+    while True:
+        print(source.collect())
+        time.sleep(0.1)

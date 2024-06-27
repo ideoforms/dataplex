@@ -4,8 +4,6 @@ import serial
 import datetime
 import threading
 
-# from Queue import *
-
 """
 Must be put into data logger mode by holding CLEAR + WINDSPEED for 3 seconds.
 !!0000008002EF0000----0306--------0000004500000000

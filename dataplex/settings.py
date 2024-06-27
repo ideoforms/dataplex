@@ -5,14 +5,16 @@ debug = False
 #----------------------------------------------------------------------
 # I/O setup
 #----------------------------------------------------------------------
-sources = [ SOURCE_ULTIMETER ]
-logfile = "logs/weather-data.%Y%m%d.%H%M%S.csv"
+# sources = [ SOURCE_ULTIMETER ]
+sources = [ SOURCE_CSV ]
+logfile = "/Users/jonesbulley/logs/weather-data.%Y%m%d.%H%M%S.csv"
 time_format = "%Y/%m/%d-%H:%M:%S"
 
 #----------------------------------------------------------------------
 # data reading options
 #----------------------------------------------------------------------
-csv_rate = 2
+csv_file = "logs/weather-data.melbourne-cup-day-1.20151029.061205.csv"
+csv_rate = 1
 csv_sleep = 0.01
 
 #----------------------------------------------------------------------
@@ -27,9 +29,12 @@ print_interval = 40
 
 #----------------------------------------------------------------------
 # how many history values shall we use for normalized/change values?
+# 3600 values at ~1200bpm is half an hour's worth of readings,
+# so if rain is registered at one tick, the normalised value will
+# remain at 1.0 for half an hour.   
 #----------------------------------------------------------------------
-global_history = 5000
-recent_history = 500
+global_history = 3600
+recent_history = 360
 
 #----------------------------------------------------------------------
 # do we wish to only output new values?
@@ -41,7 +46,7 @@ uniq = False
 # network config
 #----------------------------------------------------------------------
 jdp_destinations = [ ]
-osc_destinations = [ "localhost:7400" ]
+osc_destinations = [ "127.0.0.1:7400" ]
 
 use_peak = {
     "battery"       : False,
