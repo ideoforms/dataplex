@@ -1,7 +1,14 @@
+#--------------------------------------------------------------------------------
+# Pydantic config definitions.
+#--------------------------------------------------------------------------------
+
 from typing import Optional, Union, Literal
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel
 import json
 
+#--------------------------------------------------------------------------------
+# Sources
+#--------------------------------------------------------------------------------
 class SourceConfig(BaseModel):
     type: str
 
@@ -15,6 +22,9 @@ class CSVSourceConfig(SourceConfig):
     path: str
     rate: Optional[float] = 1.0
 
+#--------------------------------------------------------------------------------
+# Destinations
+#--------------------------------------------------------------------------------
 class DestinationConfig(BaseModel):
     type: str
 
@@ -35,6 +45,10 @@ class CSVDestinationConfig(BaseModel):
 # Union types for sources and destinations
 SourceUnion = Union[UltimeterSourceConfig, CSVSourceConfig]
 DestinationUnion = Union[OSCDestinationConfig, CSVDestinationConfig]
+
+#--------------------------------------------------------------------------------
+# Sources
+#--------------------------------------------------------------------------------
 
 class Config(BaseModel):
     sources: list[SourceUnion]

@@ -1,7 +1,4 @@
-
-
 import jdp
-import pprint
 
 from .destination import Destination
 
@@ -24,7 +21,6 @@ class DestinationJDP (Destination):
                     "previous_normalised" : record.previous_normalised,
                     "change" : record.change
                 }
-                # pprint.pprint(structure)
             except AttributeError:
                 #------------------------------------------------------------------------
                 # For scalar fields (eg time), simply pass their value.

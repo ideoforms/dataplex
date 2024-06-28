@@ -6,12 +6,12 @@ import threading
 try:
     import pyaudio
 except ModuleNotFoundError:
-    print("Skipping source: Audio")
+    pass
 
 from .source import Source
 
 
-class SourceAudio(Source):
+class SourceAudio (Source):
     def __init__(self, block_size: int = 256):
         self.audio = pyaudio.PyAudio()
         self.block_size = block_size
@@ -36,7 +36,9 @@ class SourceAudio(Source):
         values = struct.unpack("%dh" % (len(self.buffer) / 2), self.buffer)
         mean = sum([sample * sample for sample in values]) / float(len(self.buffer))
         rms = math.sqrt(mean) / 32768.0
-        data = {"rms": rms}
+        data = {
+            "rms": rms
+        }
 
         return data
 

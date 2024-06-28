@@ -5,7 +5,7 @@ try:
     import cv2
     import time
 except:
-    print("Skipping source: Webcam")
+    pass
 
 from .source import Source
 

@@ -1,6 +1,5 @@
-from .pakbus import *
-from .ultimeter import *
-from .csv import *
-from .webcam import *
-from .audio import *
-#  from .metoffice import *
+from .csv import SourceCSV
+from .audio import SourceAudio
+from .pakbus import SourcePakbus
+from .webcam import SourceWebcam
+from .ultimeter import SourceUltimeter

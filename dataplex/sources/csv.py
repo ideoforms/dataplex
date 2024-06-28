@@ -7,7 +7,7 @@ from .source import Source
 
 class SourceCSV (Source):
     def __init__(self,
-                 filename: str,
+                 path: str,
                  rate: float = 1.0):
         """
         Read a CSV file.
@@ -17,8 +17,8 @@ class SourceCSV (Source):
             rate (float, optional): The rate that data should be output, relative to the original
                                     time series. Defaults to 1.0.
         """
-        self.filename = filename
-        self.fd = open(filename, "r")
+        self.filename = path
+        self.fd = open(path, "r")
         self.rate = rate
         self.reader = csv.reader(self.fd)
         self.fields = next(self.reader)
@@ -55,7 +55,7 @@ class SourceCSV (Source):
             self.read()
             return data
 
-        log_delta = (self.next_row["time"] - self.t0_log) / float(settings.csv_rate)
+        log_delta = (self.next_row["time"] - self.t0_log) / float(self.rate)
         time_delta = time.time() - self.t0_time
 
         while time_delta <= log_delta:
@@ -72,7 +72,7 @@ class SourceCSV (Source):
             #------------------------------------------------------------------------
             data = self.next_row
             self.read()
-            log_delta = (self.next_row["time"] - self.t0_log) / float(settings.csv_rate)
+            log_delta = (self.next_row["time"] - self.t0_log) / float(self.rate)
 
         return data
 

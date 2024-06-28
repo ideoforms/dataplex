@@ -30,7 +30,7 @@ SKIP_FIELDS = [
 ]
 
 class Ultimeter:
-    def __init__(self, debug = False, port = None):
+    def __init__(self, debug: bool = False, port: str = None):
         self.port = None
         self.debug = debug
         self.buffer = ""
@@ -45,7 +45,7 @@ class Ultimeter:
         self.read_thread = None
 
         self.open()
-    
+
     def start(self):
         #------------------------------------------------------------------------
         # start running, and connect when serial port available
@@ -54,7 +54,7 @@ class Ultimeter:
             print("*** already running background poll, refusing to start another thread")
             return
         else:
-            self.read_thread = threading.Thread(target = self.read_serial)
+            self.read_thread = threading.Thread(target=self.read_serial)
             #------------------------------------------------------------------------
             # set daemon mode to True so this thread dies when the main thread
             # is killed.
@@ -72,7 +72,7 @@ class Ultimeter:
         """
         return True if self.port else False
 
-    def open(self, port_name = None):
+    def open(self, port_name=None):
         """ Open a connection to the named serial device (eg /dev/tty.*)
         """
         if self.is_open:
@@ -94,7 +94,7 @@ class Ultimeter:
         if self.port_name is None:
             raise Exception("No serial port found, please specify.")
 
-        self.port = serial.Serial(port = self.port_name, baudrate = 2400, timeout = 0.1)
+        self.port = serial.Serial(port=self.port_name, baudrate=2400, timeout=0.1)
         # self.port.setPort(self.port_name)
         # self.port.open()
 
@@ -113,7 +113,6 @@ class Ultimeter:
             self.port.close()
         self.port = None
 
-
     def set_date(self):
         #------------------------------------------------------------------------
         # >Uyyyy
@@ -123,7 +122,7 @@ class Ultimeter:
         # Set Date and Time (decimal digits dddd = day of year,
         # mmmm = minute of day; Jan 1 = 0000, Midnight = 0000)
         #------------------------------------------------------------------------
-        now = datetime.datetime.now() 
+        now = datetime.datetime.now()
 
         # calculate day of year (number from 0)
         day_of_year = datetime.datetime(now.year, now.month, now.day).toordinal() - 1
@@ -139,7 +138,7 @@ class Ultimeter:
         # Set output mode to Data Logger Mode (continuous output)
         time.sleep(0.5)
         self.port.write(">I\n".encode())
-    
+
     def set_pressure(self, pressure):
         time.sleep(0.5)
         self.port.write(">E%05d".encode() % (pressure * 10))
@@ -163,8 +162,9 @@ class Ultimeter:
                             raise Exception("No data read, bailing")
                     while n:
                         try:
-                            text = self.port.read(size = n)
-                            if len(text) == 0: continue
+                            text = self.port.read(size=n)
+                            if len(text) == 0:
+                                continue
                             text = text.decode()
                             for char in text:
                                 if char == "\n" or char == "\n":
@@ -246,7 +246,7 @@ class Ultimeter:
                 # convert to m/s
                 #------------------------------------------------------------------------
                 value = 100.0 * value / 3600.0
-            
+
             elif field == "rain":
                 #------------------------------------------------------------------------
                 # unit = 0.01 in
@@ -260,7 +260,7 @@ class Ultimeter:
                 # convert to hPa
                 #------------------------------------------------------------------------
                 value = value / 10.0
-                
+
             self.values[field] = value
 
         #------------------------------------------------------------------------

@@ -1,11 +1,4 @@
-#!/usr/bin/python
-
-import os
 import sys
-import math
-import time
-import getopt
-import random
 
 from statistics import mean
 
@@ -13,11 +6,11 @@ from statistics import mean
 # ECDF:
 #--------------------------------------------------------------
 def ecdf(distribution, sample):
-    """ ecdf: returns the percentile position of a sample within an empirical
+    """
+    ecdf: returns the percentile position of a sample within an empirical
     cumulative distribution, with linear interpolation between data points.
     """
     distribution = sorted(distribution)
-    per_sample = 1.0 / len(distribution)
 
     if sample == distribution[0]:
         return 0
