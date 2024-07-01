@@ -1,13 +1,25 @@
 # dataplex
 
-A multiplexing server for aggregation and distribution of real-time data and sensor inputs.
+A multiplexing server for aggregation, analysis and distribution of real-time data and sensor inputs, designed for data-driven performance and sonification.
+
+## Concepts
+
+A dataplex session comprises of one or more **sources** and one or more **destinations**.
 
 Supported sources:
 
-- audio in
+- local audio input
 - webcam (built-in iSight or external USB)
 - Peet Bros Ultimeter weather station range
 - Campbell Scientific BWS-200 weather station
+- CSV log file
+
+Supported destinations:
+
+- Standard terminal output (stdout)
+- CSV log file
+- Open Sound Control (OSC) server
+- [JSON Datagram Protocol](https://pypi.org/project/jdp/) (JDP) server
 
 ## Requirements
 
@@ -31,6 +43,14 @@ pip3 install pyaudio
 ```
 brew install numpy scipy opencv
 pip3 install opencv-python
+```
+
+## Usage
+
+dataplex is configured with a .json config file. To run the server:
+
+```
+python3 -m dataplex.server -c config/config.json
 ```
 
 ## Background
