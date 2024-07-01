@@ -1,11 +1,12 @@
 import os
 import csv
 import time
+import argparse
 
 from .. import settings
-from .source import Source
+# from .source import Source
 
-class SourceCSV (Source):
+class SourceCSV:
     def __init__(self,
                  path: str,
                  rate: float = 1.0):
@@ -62,7 +63,7 @@ class SourceCSV (Source):
             #------------------------------------------------------------------------
             # wait until we've hit the required time
             #------------------------------------------------------------------------
-            time.sleep(0.1)
+            time.sleep(0.01)
             time_delta = time.time() - self.t0_time
 
         while time_delta >= log_delta:
@@ -78,8 +79,12 @@ class SourceCSV (Source):
 
 
 if __name__ == "__main__":
-    source = SourceCSV("logs/weather-data.ben-lomond.2015-09-30.131839.csv", rate=0.1)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--rate", type=float, default=1.0, help="Rate to output records relative to original CSV timestamps")
+    parser.add_argument("input_path", help="CSV file to read")
+    args = parser.parse_args()
+
+    source = SourceCSV(args.input_path, rate=args.rate)
 
     while True:
         print(source.collect())
-        time.sleep(0.1)
