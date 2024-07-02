@@ -93,79 +93,85 @@ class Server:
         for destination in self.destinations:
             logger.info(" - %s" % destination)
 
+    def next(self):
+        #--------------------------------------------------------------
+        # Infinite loop: pull new data and record.
+        #--------------------------------------------------------------
+        try:
+            record = {}
+            for source in self.sources:
+                record.update(source.collect())
+
+        except StopIteration:
+            #--------------------------------------------------------------
+            # TODO: we should throw this when a CSV file has finished
+            #--------------------------------------------------------------
+            logger.info("Source %s ended stream." % self.source)
+            raise
+
+        #--------------------------------------------------------------
+        # Set time value, and record any values that are present.
+        #--------------------------------------------------------------
+        if "time" in record:
+            self.data["time"] = record["time"]
+        else:
+            self.data["time"] = time.time()
+
+        #--------------------------------------------------------------
+        # If we've not got any data except time, skip this iteration.
+        #--------------------------------------------------------------
+        if len(record) == 1:
+            return
+
+        #--------------------------------------------------------------
+        # Register new data.
+        #--------------------------------------------------------------
+        for key in self.data:
+            if key == "time":
+                continue
+            if key in record and record[key] is not None:
+                self.data[key].register(record[key])
+
+        #--------------------------------------------------------------
+        # If any of our data sources are not yet set (returning None),
+        # skip this iteration.
+        #--------------------------------------------------------------
+        missing_data = False
+        for key in self.field_names:
+            if self.data[key].value is None:
+                logger.info("Awaiting data for %s..." % key)
+                missing_data = True
+
+        #--------------------------------------------------------------
+        # Skip this iteration and retry.
+        #--------------------------------------------------------------
+        if missing_data:
+            time.sleep(0.1)
+            return
+
+        #--------------------------------------------------------------
+        # Send current data to each destination
+        #--------------------------------------------------------------
+        for destination in self.destinations:
+            destination.send(self.data)
+
+        #--------------------------------------------------------------
+        # Wait until next cycle
+        #--------------------------------------------------------------
+        if isinstance(self.sources[0], SourceCSV):
+            time.sleep(0.01)
+        else:
+            time.sleep(settings.read_interval)
+
+        return self.data
+            
     def run(self):
         """
         Run the main server process, blocking indefinitely.
         """
         try:
             while True:
-                #--------------------------------------------------------------
-                # Infinite loop: pull new data and record.
-                #--------------------------------------------------------------
-                try:
-                    record = {}
-                    for source in self.sources:
-                        record.update(source.collect())
-
-                except StopIteration:
-                    #--------------------------------------------------------------
-                    # TODO: we should throw this when a CSV file has finished
-                    #--------------------------------------------------------------
-                    logger.info("Source %s ended stream." % self.source)
-                    break
-
-                #--------------------------------------------------------------
-                # Set time value, and record any values that are present.
-                #--------------------------------------------------------------
-                if "time" in record:
-                    self.data["time"] = record["time"]
-                else:
-                    self.data["time"] = time.time()
-
-                #--------------------------------------------------------------
-                # If we've not got any data except time, skip this iteration.
-                #--------------------------------------------------------------
-                if len(record) == 1:
-                    continue
-
-                #--------------------------------------------------------------
-                # Register new data.
-                #--------------------------------------------------------------
-                for key in self.data:
-                    if key == "time":
-                        continue
-                    if key in record and record[key] is not None:
-                        self.data[key].register(record[key])
-
-                #--------------------------------------------------------------
-                # If any of our data sources are not yet set (returning None),
-                # skip this iteration.
-                #--------------------------------------------------------------
-                missing_data = False
-                for key in self.field_names:
-                    if self.data[key].value is None:
-                        logger.info("Awaiting data for %s..." % key)
-                        missing_data = True
-                #--------------------------------------------------------------
-                # Skip this iteration and retry.
-                #--------------------------------------------------------------
-                if missing_data:
-                    time.sleep(0.1)
-                    continue
-
-                #--------------------------------------------------------------
-                # send our current data to each destination
-                #--------------------------------------------------------------
-                for destination in self.destinations:
-                    destination.send(self.data)
-
-                #--------------------------------------------------------------
-                # send our current data to each destination
-                #--------------------------------------------------------------
-                if isinstance(self.sources[0], SourceCSV):
-                    time.sleep(0.01)
-                else:
-                    time.sleep(settings.read_interval)
+                self.next()
 
         except KeyboardInterrupt:
             logger.info("Killed by ctrl-c")
