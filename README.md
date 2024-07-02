@@ -2,6 +2,8 @@
 
 A multiplexing server for aggregation, analysis and distribution of real-time data and sensor inputs, designed for data-driven performance and sonification.
 
+Sources are multiplexed and aggregated onto a synchronous shared clock, so that each dataframe contains the latest available readings from all sources.
+
 ## Concepts
 
 A dataplex session comprises of one or more **sources** and one or more **destinations**.
