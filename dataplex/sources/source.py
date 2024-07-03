@@ -1,2 +1,4 @@
 class Source:
-    pass
+    @property
+    def fields(self):
+        return []

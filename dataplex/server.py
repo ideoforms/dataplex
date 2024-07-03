@@ -6,7 +6,7 @@ from . import settings
 
 from .config import load_config
 from .settings import global_history_length, recent_history_length
-from .sources import SourceAudio, SourceCSV, SourcePakbus, SourceUltimeter, SourceWebcam
+from .sources import SourceAudio, SourceCSV, SourcePakbus, SourceUltimeter, SourceWebcam, SourceJDP
 from .destinations import DestinationJDP, DestinationCSV, DestinationOSC, DestinationStdout
 from .statistics.ecdf import ECDFNormaliser
 
@@ -38,12 +38,14 @@ class Server:
             elif source.type == "csv":
                 self.sources.append(SourceCSV(path=source.path,
                                               rate=source.rate))
-            elif source.type == "webcam":
-                self.sources.append(SourceWebcam())
+            elif source.type == "jdp":
+                self.sources.append(SourceJDP(port=source.port))
+            elif source.type == "video":
+                self.sources.append(SourceWebcam(source.camera_index))
             elif source.type == "audio":
-                self.sources.append(SourceAudio())
+                self.sources.append(SourceAudio(source.block_size))
             else:
-                raise ValueError(f"Source type not known: f{source.type}")
+                raise ValueError(f"Source type not known: {source.type}")
 
         #--------------------------------------------------------------
         # Init: Fields
@@ -100,7 +102,9 @@ class Server:
         try:
             record = {}
             for source in self.sources:
-                record.update(source.collect())
+                data = source.collect()
+                if data:
+                    record.update(data)
 
         except StopIteration:
             #--------------------------------------------------------------
@@ -155,14 +159,6 @@ class Server:
         for destination in self.destinations:
             destination.send(self.data)
 
-        #--------------------------------------------------------------
-        # Wait until next cycle
-        #--------------------------------------------------------------
-        if isinstance(self.sources[0], SourceCSV):
-            time.sleep(0.01)
-        else:
-            time.sleep(settings.read_interval)
-
         return self.data
             
     def run(self):
@@ -172,6 +168,13 @@ class Server:
         try:
             while True:
                 self.next()
+                #--------------------------------------------------------------
+                # Wait until next cycle
+                #--------------------------------------------------------------
+                if isinstance(self.sources[0], SourceCSV):
+                    time.sleep(0.01)
+                else:
+                    time.sleep(settings.read_interval)
 
         except KeyboardInterrupt:
             logger.info("Killed by ctrl-c")

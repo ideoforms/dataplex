@@ -4,9 +4,9 @@ import time
 import argparse
 
 from .. import settings
-# from .source import Source
+from .source import Source
 
-class SourceCSV:
+class SourceCSV (Source):
     def __init__(self,
                  path: str,
                  rate: float = 1.0):

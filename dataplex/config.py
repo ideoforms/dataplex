@@ -22,6 +22,18 @@ class CSVSourceConfig(SourceConfig):
     path: str
     rate: Optional[float] = 1.0
 
+class JDPSourceConfig(SourceConfig):
+    type: Literal['jdp']
+    port: Optional[int] = 11000
+
+class AudioSourceConfig(SourceConfig):
+    type: Literal['audio']
+    block_size: Optional[int] = 256
+
+class VideoSourceConfig(SourceConfig):
+    type: Literal['video']
+    camera_index: Optional[int] = 2
+
 #--------------------------------------------------------------------------------
 # Destinations
 #--------------------------------------------------------------------------------
@@ -42,12 +54,20 @@ class CSVDestinationConfig(BaseModel):
     type: Literal['csv']
     path: str
 
+#--------------------------------------------------------------------------------
 # Union types for sources and destinations
-SourceUnion = Union[UltimeterSourceConfig, CSVSourceConfig]
-DestinationUnion = Union[OSCDestinationConfig, CSVDestinationConfig]
+#--------------------------------------------------------------------------------
+
+SourceUnion = Union[AudioSourceConfig,
+                    VideoSourceConfig,
+                    CSVSourceConfig,
+                    JDPSourceConfig,
+                    UltimeterSourceConfig]
+DestinationUnion = Union[OSCDestinationConfig,
+                         CSVDestinationConfig]
 
 #--------------------------------------------------------------------------------
-# Sources
+# Top-level config
 #--------------------------------------------------------------------------------
 
 class Config(BaseModel):

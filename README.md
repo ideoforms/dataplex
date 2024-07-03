@@ -25,25 +25,17 @@ Supported destinations:
 
 ## Requirements
 
-### Source: Serial inputs
+Multiple optional sources are available, each of which has differing dependencies.
 
-Including Ultimeter 2100 and BWS-200 weather stations.
-
-```
+```sh
+# Serial inputs, including Ultimeter 2100 and BWS-200 weather stations.
 pip3 install pyserial
-```
 
-### Source: Audio
-
-```
+# Audio
 brew install portaudio
 pip3 install pyaudio
-```
 
-### Source: Webcam
-
-```
-brew install numpy scipy opencv
+# Video
 pip3 install opencv-python
 ```
 
