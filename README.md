@@ -19,6 +19,8 @@ Available sources:
 - Peet Bros Ultimeter weather station range
 - Campbell Scientific BWS-200 weather station
 - CSV log file
+- serial device with ASCII line protocol
+- [JSON Datagram Protocol](https://pypi.org/project/jdp/) (JDP) client
 
 Available destinations:
 
