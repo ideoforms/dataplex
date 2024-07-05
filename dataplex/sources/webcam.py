@@ -48,7 +48,11 @@ class SourceWebcam (Source):
         rgb = list(reversed(central_bgr / 255.0))
         hue, saturation, brightness = colorsys.rgb_to_hsv(*rgb)
 
-        data = {"hue": hue, "brightness": brightness, "saturation": saturation}
+        data = {
+            "hue": hue,
+            "brightness": brightness,
+            "saturation": saturation
+        }
 
         return data
 

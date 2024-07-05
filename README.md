@@ -6,9 +6,13 @@ Sources are multiplexed and aggregated onto a synchronous shared clock, so that 
 
 ## Concepts
 
-A dataplex session comprises of one or more **sources** and one or more **destinations**.
+A dataplex session comprises of:
 
-Supported sources:
+ - **sources**, which may be sensors, network devices, or previously-recorded datasets
+ - **processors**, for smoothing, normalisation and whitening, statistical analysis, event detection
+ - **destinations**, including logfiles, human-readable output, displays, and network devices
+
+Available sources:
 
 - local audio input
 - webcam (built-in iSight or external USB)
@@ -16,7 +20,7 @@ Supported sources:
 - Campbell Scientific BWS-200 weather station
 - CSV log file
 
-Supported destinations:
+Available destinations:
 
 - Standard terminal output (stdout)
 - CSV log file

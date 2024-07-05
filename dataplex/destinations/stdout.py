@@ -23,7 +23,7 @@ class DestinationStdout (Destination):
         #--------------------------------------------------------------
         # add a heading every N lines for readability.
         #--------------------------------------------------------------
-        print("%-19s" % time.strftime(settings.time_format, time.localtime(data["time"])), end=' ')
+        print("%-19s" % data["time"].strftime(settings.time_format), end=' ')
         for key in self.field_names:
             if data[key].value is not None:
                 values = "[%.2f, %.2f]" % (

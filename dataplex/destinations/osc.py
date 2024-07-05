@@ -20,9 +20,7 @@ class DestinationOSC (Destination):
         #--------------------------------------------------------------
         # first, send current time in hours and minutes 
         #--------------------------------------------------------------
-        localtime = time.localtime(data["time"])
-
-        self.send_message("/data/time", int(data["time"]))
+        self.send_message("/data/time", int(data["time"].timestamp()))
 
         for name, record in list(data.items()):
             if name == "time":

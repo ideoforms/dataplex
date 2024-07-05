@@ -6,20 +6,23 @@ from . import settings
 
 from .config import load_config
 from .settings import global_history_length, recent_history_length
-from .sources import SourceAudio, SourceCSV, SourcePakbus, SourceUltimeter, SourceWebcam, SourceJDP
+from .sources import SourceAudio, SourceCSV, SourcePakbus, SourceUltimeter, SourceWebcam, SourceJDP, SourceSerial
 from .destinations import DestinationJDP, DestinationCSV, DestinationOSC, DestinationStdout
 from .statistics.ecdf import ECDFNormaliser
 
 logger = logging.getLogger(__name__)
 
 class Server:
-    def __init__(self, config_path: str = "config/config.json"):
+    def __init__(self,
+                 config_path: str = "config/config.json",
+                 quiet: bool = False):
         """
         Server is the central class that loads a configuration, reads data from one or more
         Source objects, and relays the processed stream to one or more Destinations.
 
         Args:
             config_path (str, optional): Path to the JSON config file. Defaults to "config/config.json".
+            quiet (bool, optional): If True, suppresses terminal output
 
         Raises:
             ValueError: If an invalid Source or Destination type is given.
@@ -44,6 +47,9 @@ class Server:
                 self.sources.append(SourceWebcam(source.camera_index))
             elif source.type == "audio":
                 self.sources.append(SourceAudio(source.block_size))
+            elif source.type == "serial":
+                self.sources.append(SourceSerial(field_names=source.field_names,
+                                                 port_name=source.port_name))
             else:
                 raise ValueError(f"Source type not known: {source.type}")
 
@@ -67,7 +73,9 @@ class Server:
         # Init: Destinations
         #--------------------------------------------------------------
         self.destinations = []
-        self.destinations.append(DestinationStdout(field_names=self.field_names))
+
+        if not args.quiet:
+            self.destinations.append(DestinationStdout(field_names=self.field_names))
 
         #--------------------------------------------------------------
         # Iterate over configured destinations
@@ -194,5 +202,6 @@ if __name__ == "__main__":
         log_level = "DEBUG"
     logging.basicConfig(level=log_level, format='%(asctime)s %(name)-24s %(levelname)-8s %(message)s')
 
-    server = Server(config_path=args.config)
+    server = Server(config_path=args.config,
+                    quiet=args.quiet)
     server.run()

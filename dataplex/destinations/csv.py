@@ -1,10 +1,13 @@
 import os
 import csv
 import time
+import logging
 import datetime
 
 from .destination import Destination
 from .. import settings
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_CSV_PATH = "logs/data.%Y%m%d.%H%M%S.csv"
 
@@ -31,8 +34,10 @@ class DestinationCSV (Destination):
         #--------------------------------------------------------------
         # write the latest set of data to logfile.
         #--------------------------------------------------------------
-        now = time.strftime(settings.time_format, time.localtime(data["time"]))
-        self.logwriter.writerow([now] + ["%.3f" % data[key].value for key in self.field_names])
+        now = str(data["time"])
+        row = [now] + ["%.3f" % data[key].value for key in self.field_names]
+        self.logwriter.writerow(row)
+        logger.debug("DestinationCSV: Log row: %s" % row)
 
     def close(self):
         self.logfd.close()

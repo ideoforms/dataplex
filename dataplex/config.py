@@ -17,6 +17,11 @@ class UltimeterSourceConfig(SourceConfig):
     port: Optional[str] = None
     interval: Optional[float] = None
 
+class SerialSourceConfig(SourceConfig):
+    type: Literal['serial']
+    field_names: list[str]
+    port_name: Optional[str] = None
+
 class CSVSourceConfig(SourceConfig):
     type: Literal['csv']
     path: str
@@ -24,7 +29,7 @@ class CSVSourceConfig(SourceConfig):
 
 class JDPSourceConfig(SourceConfig):
     type: Literal['jdp']
-    port: Optional[int] = 11000
+    port: Optional[int] = 48000
 
 class AudioSourceConfig(SourceConfig):
     type: Literal['audio']
@@ -60,11 +65,13 @@ class CSVDestinationConfig(BaseModel):
 
 SourceUnion = Union[AudioSourceConfig,
                     VideoSourceConfig,
+                    SerialSourceConfig,
                     CSVSourceConfig,
                     JDPSourceConfig,
                     UltimeterSourceConfig]
 DestinationUnion = Union[OSCDestinationConfig,
-                         CSVDestinationConfig]
+                         CSVDestinationConfig,
+                         JDPDestinationConfig]
 
 #--------------------------------------------------------------------------------
 # Top-level config

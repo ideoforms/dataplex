@@ -1,7 +1,9 @@
 import jdp
+import logging
 
 from .destination import Destination
 
+logger = logging.getLogger(__name__)
 
 class DestinationJDP (Destination):
     def __init__(self, host, port):
@@ -26,4 +28,6 @@ class DestinationJDP (Destination):
                 # For scalar fields (eg time), simply pass their value.
                 #------------------------------------------------------------------------
                 structure[name] = record
+        
+        logger.debug("DestinationJDP: Send packet: %s" % structure)
         self.client.send(structure)

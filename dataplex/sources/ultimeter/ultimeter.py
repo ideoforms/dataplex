@@ -1,8 +1,11 @@
 import glob
 import time
 import serial
+import logging
 import datetime
 import threading
+
+logger = logging.getLogger(__name__)
 
 """
 Must be put into data logger mode by holding CLEAR + WINDSPEED for 3 seconds.
@@ -51,7 +54,7 @@ class Ultimeter:
         # start running, and connect when serial port available
         #------------------------------------------------------------------------
         if self.read_thread:
-            print("*** already running background poll, refusing to start another thread")
+            logger.warning("Ultimeter: Already running background poll, refusing to start another thread")
             return
         else:
             self.read_thread = threading.Thread(target=self.read_serial)
@@ -72,7 +75,7 @@ class Ultimeter:
         """
         return True if self.port else False
 
-    def open(self, port_name=None):
+    def open(self, port_name: str = None):
         """ Open a connection to the named serial device (eg /dev/tty.*)
         """
         if self.is_open:
@@ -81,7 +84,7 @@ class Ultimeter:
         if port_name is not None:
             self.port_name = port_name
 
-        if self.port_name is None:
+        if self.port_name is None or self.port_name == "auto":
             #------------------------------------------------------------------------
             # see if we can find a default FTDI-style interface ID
             #------------------------------------------------------------------------
@@ -89,7 +92,7 @@ class Ultimeter:
             interfaces = sorted(interfaces)
             if interfaces:
                 self.port_name = interfaces[0]
-                print(("Using port %s" % self.port_name))
+                logger.info(("Ultimeter: Using port %s" % self.port_name))
 
         if self.port_name is None:
             raise Exception("No serial port found, please specify.")
@@ -175,18 +178,18 @@ class Ultimeter:
                                     self.buffer += char
                             self.trace("[POLL] read: %s" % text)
                         except serial.SerialException as e:
-                            print(("*** error reading serial: %s" % e))
+                            logger.warning(("Ultimeter: Error reading serial: %s" % e))
                             break
                         n = self.port.inWaiting()
                     time.sleep(0.04)
             except Exception as e:
-                print(("Exception: %s" % e))
+                logger.warning(("Ultimeter: Exception: %s" % e))
                 pass
 
             # reset data if we've lost connection so we don't keep sending
             self.values = {}
             self.close()
-            print("Trying to open port...")
+            logger.info("Ultimeter: Trying to open port...")
             time.sleep(1)
 
     def handle(self, message):
