@@ -6,15 +6,18 @@ import argparse
 from .. import settings
 from .source import Source
 
-class SourceJDP (Source):
+class SourceJDP:
     def __init__(self,
+                 field_names: list[str],
                  port: int = 48000):
         """
         Listen for JSON Datagram Protocol packets.
 
         Args:
+            field_names (list[str]): The list of expected fields
             port (int): The port to listen on.
         """
+        self.fields = field_names
         self.server = jdp.Server(port)
         self.server.start()
         self.server.add_callback(self.handle_data)
@@ -24,7 +27,6 @@ class SourceJDP (Source):
         return ("JDP (%s)" % self.server)
 
     def handle_data(self, data: dict):
-        print("Received JDP: %s" % data)
         self.data = data
 
     def collect(self, blocking: bool = False):

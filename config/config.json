@@ -3,12 +3,20 @@
     [
         {
             "type": "jdp",
-            "port" : 48000
+            "port" : 48000,
+            "field_names": ["temperature", "pressure", "humidity"]
         },
         {
             "type": "serial",
             "port_name": "/dev/cu.usbmodem2101",
-            "field_names": ["co2"]
+            "field_names": ["co2"],
+            "enabled": false
+        },
+        {
+            "type": "ultimeter",
+            "port_name": "/dev/cu.usbserial-FTELIIL0",
+            "field_names": ["wind_speed", "wind_dir"],
+            "enabled": false
         }
     ],
     "destinations" :

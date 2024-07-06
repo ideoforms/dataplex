@@ -11,6 +11,7 @@ import json
 #--------------------------------------------------------------------------------
 class SourceConfig(BaseModel):
     type: str
+    enabled: Optional[bool] = True
 
 class UltimeterSourceConfig(SourceConfig):
     type: Literal['ultimeter']
@@ -29,6 +30,7 @@ class CSVSourceConfig(SourceConfig):
 
 class JDPSourceConfig(SourceConfig):
     type: Literal['jdp']
+    field_names: list[str]
     port: Optional[int] = 48000
 
 class AudioSourceConfig(SourceConfig):
@@ -82,4 +84,5 @@ class Config(BaseModel):
     destinations: list[DestinationUnion]
 
 def load_config(config_path: str):
-    return Config(**(json.load(open(config_path))))
+    # return Config(**(json.load(open(config_path))))
+    return Config(**(arson.parse(open(config_path).read())))

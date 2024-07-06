@@ -9,7 +9,7 @@ Sources are multiplexed and aggregated onto a synchronous shared clock, so that 
 A dataplex session comprises of:
 
  - **sources**, which may be sensors, network devices, or previously-recorded datasets
- - **processors**, for smoothing, normalisation and whitening, statistical analysis, event detection
+ - **processors**, for smoothing and interpolation, normalisation and whitening, statistical analysis, event detection
  - **destinations**, including logfiles, human-readable output, displays, and network devices
 
 Available sources:

@@ -34,6 +34,10 @@ class Server:
         #--------------------------------------------------------------
         self.sources = []
         for source in config.sources:
+            if not source.enabled:
+                logger.info("Server: Skipping source %s due to enabled=False" % str(source.__class__.__name__))
+                continue
+
             if source.type == "pakbus":
                 self.sources.append(SourcePakbus())
             elif source.type == "ultimeter":
@@ -42,7 +46,8 @@ class Server:
                 self.sources.append(SourceCSV(path=source.path,
                                               rate=source.rate))
             elif source.type == "jdp":
-                self.sources.append(SourceJDP(port=source.port))
+                self.sources.append(SourceJDP(field_names=source.field_names,
+                                              port=source.port))
             elif source.type == "video":
                 self.sources.append(SourceWebcam(source.camera_index))
             elif source.type == "audio":
