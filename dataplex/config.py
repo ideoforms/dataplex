@@ -13,6 +13,7 @@ class SourceConfig(BaseModel):
     name: Optional[str] = None
     type: str
     enabled: Optional[bool] = True
+    field_names: list[str]
 
 class UltimeterSourceConfig(SourceConfig):
     type: Literal['ultimeter']
@@ -21,7 +22,6 @@ class UltimeterSourceConfig(SourceConfig):
 
 class SerialSourceConfig(SourceConfig):
     type: Literal['serial']
-    field_names: list[str]
     port_name: Optional[str] = None
 
 class CSVSourceConfig(SourceConfig):
@@ -31,7 +31,6 @@ class CSVSourceConfig(SourceConfig):
 
 class JDPSourceConfig(SourceConfig):
     type: Literal['jdp']
-    field_names: list[str]
     port: Optional[int] = 48000
 
 class AudioSourceConfig(SourceConfig):

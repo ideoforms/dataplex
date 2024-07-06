@@ -112,7 +112,6 @@ class SourceSerial:
                                                (len(values), len(self.fields)))
                         for field, value in zip(self.fields, values):
                             self.data[field] = value
-                        self.data["time"] = datetime.datetime.now()
 
                     time.sleep(0.01)
 

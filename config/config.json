@@ -2,21 +2,28 @@
     "sources" :
     [
         {
+            "name": "enviro",
             "type": "jdp",
             "port" : 48000,
-            "field_names": ["temperature", "pressure", "humidity"]
+            "field_names": [
+                "pressure", "humidity", "lux",
+                "gas_nh3", "gas_oxidising", "gas_reducing",
+                "pm_1l_03", "pm_1l_05", "pm_1l_1", "pm_1l_2", "pm_1l_5", "pm_1l_10"
+            ]
         },
         {
+            "name": "co2",
             "type": "serial",
-            "port_name": "/dev/cu.usbmodem2101",
+            "port_name": "/dev/cu.usbmodem1101",
             "field_names": ["co2"],
-            "enabled": false
+            "enabled": true
         },
         {
+            "name": "ultimeter",
             "type": "ultimeter",
             "port_name": "/dev/cu.usbserial-FTELIIL0",
-            "field_names": ["wind_speed", "wind_dir"],
-            "enabled": false
+            "field_names": ["wind_speed", "wind_dir", "temperature"],
+            "enabled": true
         }
     ],
     "destinations" :

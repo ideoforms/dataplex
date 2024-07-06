@@ -46,7 +46,8 @@ class Server:
             if source.type == "pakbus":
                 self.sources.append(SourcePakbus())
             elif source.type == "ultimeter":
-                self.sources.append(SourceUltimeter(source.port))
+                self.sources.append(SourceUltimeter(field_names=source.field_names,
+                                                    port=source.port))
             elif source.type == "csv":
                 self.sources.append(SourceCSV(path=source.path,
                                               rate=source.rate))

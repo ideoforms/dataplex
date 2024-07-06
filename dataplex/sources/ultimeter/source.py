@@ -10,10 +10,13 @@ FIELDS = [
     "humidity"
 ]
 
-class SourceUltimeter(Source):
-    def __init__(self, port: Optional[str] = None):
+class SourceUltimeter:
+    def __init__(self,
+                 field_names: list[str] = FIELDS,
+                 port: Optional[str] = None):
         self.ultimeter = ultimeter.Ultimeter(port=port)
         self.ultimeter.start()
+        self.fields = field_names
 
     def __str__(self):
         return ("Ultimeter")
@@ -21,14 +24,11 @@ class SourceUltimeter(Source):
     def collect(self):
         data = {}
 
-        for name, value in list(self.ultimeter.values.items()):
-            data[name] = self.ultimeter.values[name]
+        for name in self.fields:
+            if name in self.ultimeter.values:
+                data[name] = self.ultimeter.values[name]
 
         return data
 
     def close(self):
         self.ultimeter.close()
-
-    @property
-    def fields(self):
-        return FIELDS
