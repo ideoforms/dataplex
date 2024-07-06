@@ -1,9 +1,6 @@
-import os
 import jdp
-import time
 import argparse
 
-from .. import settings
 from .source import Source
 
 class SourceJDP:
