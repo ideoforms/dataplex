@@ -1,6 +1,7 @@
 import time
 import logging
 import argparse
+import datetime
 
 from . import settings
 
@@ -15,7 +16,8 @@ logger = logging.getLogger(__name__)
 class Server:
     def __init__(self,
                  config_path: str = "config/config.json",
-                 quiet: bool = False):
+                 quiet: bool = False,
+                 sources: list[str] = []):
         """
         Server is the central class that loads a configuration, reads data from one or more
         Source objects, and relays the processed stream to one or more Destinations.
@@ -37,6 +39,9 @@ class Server:
             if not source.enabled:
                 logger.info("Server: Skipping source %s due to enabled=False" % str(source.__class__.__name__))
                 continue
+            if sources and source.name not in sources:
+                logger.info("Server: Skipping source %s as not in specified sources list" % str(source.__class__.__name__))
+                continue
 
             if source.type == "pakbus":
                 self.sources.append(SourcePakbus())
@@ -57,6 +62,10 @@ class Server:
                                                  port_name=source.port_name))
             else:
                 raise ValueError(f"Source type not known: {source.type}")
+            
+            # TODO: Refactor to instantiate a source via a type-to-class lookup dict,
+            #       passing name and other params as part of kwargs
+            self.sources[-1].name = source.name
 
         #--------------------------------------------------------------
         # Init: Fields
@@ -79,7 +88,7 @@ class Server:
         #--------------------------------------------------------------
         self.destinations = []
 
-        if not args.quiet:
+        if not quiet:
             self.destinations.append(DestinationStdout(field_names=self.field_names))
 
         #--------------------------------------------------------------
@@ -132,7 +141,7 @@ class Server:
         if "time" in record:
             self.data["time"] = record["time"]
         else:
-            self.data["time"] = time.time()
+            self.data["time"] = datetime.datetime.now()
 
         #--------------------------------------------------------------
         # If we've not got any data except time, skip this iteration.
@@ -197,6 +206,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Run the dataplex I/O server")
     parser.add_argument("--verbose", "-v", help="Verbose output", action="store_true")
     parser.add_argument("--quiet", "-q", help="Quiet output", action="store_true")
+    parser.add_argument("--sources", help="List of source names to select", type=str)
     parser.add_argument("-c", "--config", type=str, help="Path to JSON config file", default="config/config.json")
     args = parser.parse_args()
 
@@ -207,6 +217,10 @@ if __name__ == "__main__":
         log_level = "DEBUG"
     logging.basicConfig(level=log_level, format='%(asctime)s %(name)-24s %(levelname)-8s %(message)s')
 
+    if args.sources:
+        args.sources = args.sources.split(",")
+
     server = Server(config_path=args.config,
-                    quiet=args.quiet)
+                    quiet=args.quiet,
+                    sources=args.sources)
     server.run()

@@ -10,6 +10,7 @@ import json
 # Sources
 #--------------------------------------------------------------------------------
 class SourceConfig(BaseModel):
+    name: Optional[str] = None
     type: str
     enabled: Optional[bool] = True
 
@@ -84,5 +85,4 @@ class Config(BaseModel):
     destinations: list[DestinationUnion]
 
 def load_config(config_path: str):
-    # return Config(**(json.load(open(config_path))))
-    return Config(**(arson.parse(open(config_path).read())))
+    return Config(**(json.load(open(config_path))))
