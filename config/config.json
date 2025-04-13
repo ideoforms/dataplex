@@ -14,7 +14,7 @@
         {
             "name": "co2",
             "type": "serial",
-            "port_name": "/dev/cu.usbmodem1101",
+            "port_name": "/dev/cu.usbmodem2101",
             "field_names": ["co2"],
             "enabled": true
         },

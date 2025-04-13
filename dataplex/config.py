@@ -13,7 +13,7 @@ class SourceConfig(BaseModel):
     name: Optional[str] = None
     type: str
     enabled: Optional[bool] = True
-    field_names: list[str]
+    field_names: Optional[list[str]]
 
 class UltimeterSourceConfig(SourceConfig):
     type: Literal['ultimeter']

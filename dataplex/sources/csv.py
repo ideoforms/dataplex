@@ -1,10 +1,12 @@
 import os
-import csv
 import time
 import argparse
+import pandas as pd
+import datetime
 
 from .. import settings
 from .source import Source
+from ..settings import timestamp_field_name
 
 class SourceCSV (Source):
     def __init__(self,
@@ -18,11 +20,12 @@ class SourceCSV (Source):
             rate (float, optional): The rate that data should be output, relative to the original
                                     time series. Defaults to 1.0.
         """
+        super().__init__()
         self.filename = path
-        self.fd = open(path, "r")
         self.rate = rate
-        self.reader = csv.reader(self.fd)
-        self.fields = next(self.reader)
+        df = pd.read_csv(path, parse_dates=[timestamp_field_name])
+        self.records = iter(df.to_dict(orient="records"))
+        self.field_names = list(df.columns)
 
         self.t0_log = None
         self.t0_time = None
@@ -33,13 +36,8 @@ class SourceCSV (Source):
         return ("CSV (%s)" % os.path.basename(self.filename))
 
     def read(self):
-        row = next(self.reader)
-        row[0] = time.mktime(time.strptime(row[0], settings.time_format))
-        row = dict([(self.fields[n], float(value)) for n, value in enumerate(row)])
-
-        self.next_row = row
-
-        return row
+        self.next_row = next(self.records)
+        return self.next_row
 
     def collect(self):
         """
@@ -50,21 +48,21 @@ class SourceCSV (Source):
             #--------------------------------------------------------------
             # first field is always timestamp.
             #--------------------------------------------------------------
-            self.t0_log = self.next_row["time"]
-            self.t0_time = time.time()
-            data = self.next_row
+            first_row = self.read()
+            self.t0_log = first_row[timestamp_field_name]
+            self.t0_time = datetime.datetime.now()
             self.read()
-            return data
+            return first_row
 
-        log_delta = (self.next_row["time"] - self.t0_log) / float(self.rate)
-        time_delta = time.time() - self.t0_time
+        log_delta = (self.next_row[timestamp_field_name] - self.t0_log).total_seconds() / float(self.rate)
+        time_delta = (datetime.datetime.now() - self.t0_time).total_seconds()
 
         while time_delta <= log_delta:
             #------------------------------------------------------------------------
             # wait until we've hit the required time
             #------------------------------------------------------------------------
             time.sleep(0.01)
-            time_delta = time.time() - self.t0_time
+            time_delta = (datetime.datetime.now() - self.t0_time).total_seconds()
 
         while time_delta >= log_delta:
             #------------------------------------------------------------------------
@@ -73,7 +71,7 @@ class SourceCSV (Source):
             #------------------------------------------------------------------------
             data = self.next_row
             self.read()
-            log_delta = (self.next_row["time"] - self.t0_log) / float(self.rate)
+            log_delta = (self.next_row[timestamp_field_name] - self.t0_log).total_seconds() / float(self.rate)
 
         return data
 

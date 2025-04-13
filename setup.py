@@ -13,7 +13,7 @@ setup(
     url = 'https://github.com/ideoforms/dataplex',
     packages = ['dataplex'],
     keywords = ('data', 'analysis', 'statistics', 'sound', 'music'),
-    install_requires = ["pydantic", "pyserial", "python-osc", "numpy", "jdp"],
+    install_requires = ["pydantic", "pyserial", "python-osc", "numpy", "pandas", "jdp"],
     classifiers = [
         'Topic :: Multimedia :: Sound/Audio',
         'Topic :: Artistic Software',

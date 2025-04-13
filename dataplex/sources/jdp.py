@@ -3,7 +3,7 @@ import argparse
 
 from .source import Source
 
-class SourceJDP:
+class SourceJDP (Source):
     def __init__(self,
                  field_names: list[str],
                  port: int = 48000):
@@ -14,7 +14,8 @@ class SourceJDP:
             field_names (list[str]): The list of expected fields
             port (int): The port to listen on.
         """
-        self.fields = field_names
+        super().__init__()
+        self.field_names = field_names
         self.server = jdp.Server(port)
         self.server.start()
         self.server.add_callback(self.handle_data)

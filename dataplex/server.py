@@ -73,16 +73,18 @@ class Server:
         #--------------------------------------------------------------
         self.field_names = []
         for source in self.sources:
-            self.field_names += source.fields
+            if source.field_names:
+                self.field_names += source.field_names
         self.field_names = [n for n in self.field_names if n != "time"]
 
         self.data = {}
 
         for source in self.sources:
-            for name in source.fields:
-                item = ECDFNormaliser(global_history_length,
-                                      recent_history_length)
-                self.data[name] = item
+            if source.field_names:
+                for name in source.field_names:
+                    item = ECDFNormaliser(global_history_length,
+                                        recent_history_length)
+                    self.data[name] = item
 
         #--------------------------------------------------------------
         # Init: Destinations
@@ -147,8 +149,8 @@ class Server:
         #--------------------------------------------------------------
         # If we've not got any data except time, skip this iteration.
         #--------------------------------------------------------------
-        if len(record) == 1:
-            return
+        # if len(record) == 1:
+        #     return
 
         #--------------------------------------------------------------
         # Register new data.

@@ -1,4 +1,3 @@
 class Source:
-    @property
-    def fields(self):
-        return []
+    def __init__(self):
+        self.field_names = []

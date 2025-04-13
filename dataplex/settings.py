@@ -22,6 +22,12 @@ print_interval = 40
 global_history_length = 3600
 recent_history_length = 360
 
+#----------------------------------------------------------------------
+# The name to use for the timestamp field
+#----------------------------------------------------------------------
+timestamp_field_name = "time"
+
+# These should be retired in favour of using a "max" operator in the pipeline
 use_peak = {
     "battery": False,
     "temperature": False,

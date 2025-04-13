@@ -2,13 +2,13 @@ import glob
 import time
 import serial
 import logging
-import datetime
 import threading
 
+from .source import Source
 logger = logging.getLogger(__name__)
 
 
-class SourceSerial:
+class SourceSerial (Source):
     def __init__(self,
                  field_names: list[str],
                  port_name: str = None,
@@ -23,7 +23,8 @@ class SourceSerial:
             record_delimiter (str, optional): In the serial protocol, the record delimiter. Defaults to "\n".
             field_delimiter (str, optional): In the serial protocol, the field delimiter. Defaults to ",".
         """
-        self.fields = field_names
+        super().__init__()
+        self.field_names = field_names
         self.port_name = port_name
         self.record_delimiter = record_delimiter
         self.field_delimiter = field_delimiter
@@ -63,15 +64,17 @@ class SourceSerial:
         if port_name is not None:
             self.port_name = port_name
 
-        if self.port_name is None or self.port_name == "auto":
+        if self.port_name is None or self.port_name == "auto" or "*" in self.port_name:
             #------------------------------------------------------------------------
             # Look for a default interface
             #------------------------------------------------------------------------
-            interfaces = glob.glob("/dev/cu.usb*")
+            wildcard = self.port_name if "*" in self.port_name else "/dev/cu.usb*"
+            interfaces = glob.glob(wildcard)
             interfaces = list(sorted(interfaces))
             if interfaces:
                 self.port_name = interfaces[0]
                 logger.info(("Serial: Using port %s" % self.port_name))
+
 
         if self.port_name is None:
             raise Exception("No serial port given and couldn't auto-detect")
@@ -102,15 +105,15 @@ class SourceSerial:
                     text = text.decode()
                     self.buffer += text
                     while "\n" in self.buffer:
-                        position = self.buffer.index("\n")
+                        position = self.buffer.index(self.record_delimiter)
                         line = self.buffer[:position]
                         self.buffer = self.buffer[position + 1:]
-                        values = [float(value) for value in line.split(",")]
+                        values = [float(value) for value in line.split(self.field_delimiter)]
                         logger.debug("Serial: Read values: %s" % values)
-                        if len(values) != len(self.fields):
+                        if len(values) != len(self.field_names):
                             raise RuntimeError("Unexpected number of fields read from serial connection (found %d, expected %d)" %
-                                               (len(values), len(self.fields)))
-                        for field, value in zip(self.fields, values):
+                                               (len(values), len(self.field_names)))
+                        for field, value in zip(self.field_names, values):
                             self.data[field] = value
 
                     time.sleep(0.01)

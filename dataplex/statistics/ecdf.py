@@ -13,9 +13,9 @@ def ecdf(distribution, sample):
     distribution = sorted(distribution)
 
     if sample == distribution[0]:
-        return 0
+        return 0.0
     elif sample == distribution[-1]:
-        return 1
+        return 1.0
     else:
         for n, occurrence in enumerate(distribution):
             if occurrence > sample:
