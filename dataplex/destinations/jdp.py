@@ -11,7 +11,7 @@ class DestinationJDP (Destination):
 
     def send(self, data):
         structure = {}
-        for name in list(data.items()):
+        for name, record in data.items():
             try:
                 #------------------------------------------------------------------------
                 # For ECDFNormaliser objects, pass their dictionary of properties.

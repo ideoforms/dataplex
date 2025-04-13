@@ -1,11 +1,9 @@
 import os
 import csv
-import time
 import logging
 import datetime
 
 from .destination import Destination
-from .. import settings
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +26,7 @@ class DestinationCSV (Destination):
         self.logwriter.writerow(["time"] + field_names)
 
     def __str__(self):
-        return "Log (%s)" % (os.path.basename(self.path))
+        return "CSV (%s)" % (os.path.basename(self.path))
 
     def send(self, data: dict):
         #--------------------------------------------------------------

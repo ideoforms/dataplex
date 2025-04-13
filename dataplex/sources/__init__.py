@@ -1,3 +1,4 @@
+from .source import Source
 from .csv import SourceCSV
 from .audio import SourceAudio
 from .pakbus import SourcePakbus

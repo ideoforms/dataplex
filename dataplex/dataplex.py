@@ -2,20 +2,21 @@ import time
 import logging
 import argparse
 import datetime
+from collections import OrderedDict
 
 from . import settings
 
 from .config import load_config
 from .settings import global_history_length, recent_history_length
-from .sources import SourceAudio, SourceCSV, SourcePakbus, SourceUltimeter, SourceWebcam, SourceJDP, SourceSerial
+from .sources import Source, SourceAudio, SourceCSV, SourcePakbus, SourceUltimeter, SourceWebcam, SourceJDP, SourceSerial
 from .destinations import DestinationJDP, DestinationCSV, DestinationOSC, DestinationStdout
 from .statistics.ecdf import ECDFNormaliser
 
 logger = logging.getLogger(__name__)
 
-class Server:
+class Dataplex:
     def __init__(self,
-                 config_path: str = "config/config.json",
+                 config_file: str = "config.json",
                  quiet: bool = False,
                  sources: list[str] = []):
         """
@@ -23,67 +24,69 @@ class Server:
         Source objects, and relays the processed stream to one or more Destinations.
 
         Args:
-            config_path (str, optional): Path to the JSON config file. Defaults to "config/config.json".
+            config_file (str, optional): Path to the JSON config file. Defaults to "config.json".
+                                         The 'config' subdirectory is automatically searched.
             quiet (bool, optional): If True, suppresses terminal output
 
         Raises:
             ValueError: If an invalid Source or Destination type is given.
         """
-        config = load_config(config_path)
+        config = load_config(config_file)
 
         #--------------------------------------------------------------
         # Init: Sources
         #--------------------------------------------------------------
-        self.sources = []
-        for source in config.sources:
-            if not source.enabled:
-                logger.info("Server: Skipping source %s due to enabled=False" % str(source.__class__.__name__))
+        self.sources = OrderedDict()
+        for source_config in config.sources:
+            if not source_config.enabled:
+                logger.info("Server: Skipping source %s due to enabled=False" % str(source_config.name))
                 continue
-            if sources and source.name not in sources:
-                logger.info("Server: Skipping source %s as not in specified sources list" % str(source.__class__.__name__))
+            if sources and source_config.name not in sources:
+                logger.info("Server: Skipping source %s as not in specified sources list" %
+                            str(source_config.name))
                 continue
 
-            if source.type == "pakbus":
-                self.sources.append(SourcePakbus())
-            elif source.type == "ultimeter":
-                self.sources.append(SourceUltimeter(field_names=source.field_names,
-                                                    port=source.port))
-            elif source.type == "csv":
-                self.sources.append(SourceCSV(path=source.path,
-                                              rate=source.rate))
-            elif source.type == "jdp":
-                self.sources.append(SourceJDP(field_names=source.field_names,
-                                              port=source.port))
-            elif source.type == "video":
-                self.sources.append(SourceWebcam(source.camera_index))
-            elif source.type == "audio":
-                self.sources.append(SourceAudio(source.block_size))
-            elif source.type == "serial":
-                self.sources.append(SourceSerial(field_names=source.field_names,
-                                                 port_name=source.port_name))
+            if source_config.type == "pakbus":
+                source = SourcePakbus()
+            elif source_config.type == "ultimeter":
+                source = SourceUltimeter(field_names=source_config.field_names,
+                                         port=source_config.port)
+            elif source_config.type == "csv":
+                source = SourceCSV(path=source_config.path,
+                                   rate=source_config.rate)
+            elif source_config.type == "jdp":
+                source = SourceJDP(field_names=source.field_names,
+                                   port=source.port)
+            elif source_config.type == "video":
+                source = SourceWebcam(source.camera_index)
+            elif source_config.type == "audio":
+                source = SourceAudio()
+            elif source_config.type == "serial":
+                source = SourceSerial(field_names=source.field_names,
+                                      port_name=source.port_name)
             else:
-                raise ValueError(f"Source type not known: {source.type}")
-            
+                raise ValueError(f"Source type not known: {source_config.type}")
+
             # TODO: Refactor to instantiate a source via a type-to-class lookup dict,
             #       passing name and other params as part of kwargs
-            self.sources[-1].name = source.name
+            self.sources[source_config.name] = source
 
         #--------------------------------------------------------------
         # Init: Fields
         #--------------------------------------------------------------
         self.field_names = []
-        for source in self.sources:
+        for source in self.sources.values():
             if source.field_names:
                 self.field_names += source.field_names
         self.field_names = [n for n in self.field_names if n != "time"]
 
         self.data = {}
 
-        for source in self.sources:
+        for source in self.sources.values():
             if source.field_names:
                 for name in source.field_names:
                     item = ECDFNormaliser(global_history_length,
-                                        recent_history_length)
+                                          recent_history_length)
                     self.data[name] = item
 
         #--------------------------------------------------------------
@@ -97,24 +100,26 @@ class Server:
         #--------------------------------------------------------------
         # Iterate over configured destinations
         #--------------------------------------------------------------
-        for destination in config.destinations:
-            if destination.type == "csv":
-                self.destinations.append(DestinationCSV(field_names=self.field_names,
-                                                        path_template=destination.path))
-            elif destination.type == "osc":
-                self.destinations.append(DestinationOSC(destination.host,
-                                                        destination.port))
-            elif destination.type == "jdp":
-                self.destinations.append(DestinationJDP(destination.host,
-                                                        destination.port))
+        for destination_config in config.destinations:
+            if destination_config.type == "csv":
+                destination = DestinationCSV(field_names=self.field_names,
+                                              path_template=destination_config.path)
+            elif destination_config.type == "osc":
+                destination = DestinationOSC(destination_config.host,
+                                             destination_config.port)
+            elif destination_config.type == "jdp":
+                destination = DestinationJDP(destination_config.host,
+                                             destination_config.port)
             else:
-                raise ValueError(f"Destination type not known: f{destination.type}")
+                raise ValueError(f"Destination type not known: f{destination_config.type}")
+        
+            self.destinations.append(destination)
 
         #--------------------------------------------------------------
         # Print output
         #--------------------------------------------------------------
         logger.info("Sources: ")
-        for source in self.sources:
+        for source_name, source in self.sources.items():
             logger.info(" - %s" % source)
         logger.info("Destinations: ")
         for destination in self.destinations:
@@ -126,7 +131,7 @@ class Server:
         #--------------------------------------------------------------
         try:
             record = {}
-            for source in self.sources:
+            for source_name, source in self.sources.items():
                 data = source.collect()
                 if data:
                     record.update(data)
@@ -185,7 +190,7 @@ class Server:
             destination.send(self.data)
 
         return self.data
-            
+
     def run(self):
         """
         Run the main server process, blocking indefinitely.
@@ -193,10 +198,11 @@ class Server:
         try:
             while True:
                 self.next()
+
                 #--------------------------------------------------------------
                 # Wait until next cycle
                 #--------------------------------------------------------------
-                if isinstance(self.sources[0], SourceCSV):
+                if isinstance(list(self.sources.keys())[0], SourceCSV):
                     time.sleep(0.01)
                 else:
                     time.sleep(settings.read_interval)
@@ -205,25 +211,17 @@ class Server:
             logger.info("Killed by ctrl-c")
             pass
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Run the dataplex I/O server")
-    parser.add_argument("--verbose", "-v", help="Verbose output", action="store_true")
-    parser.add_argument("--quiet", "-q", help="Quiet output", action="store_true")
-    parser.add_argument("--sources", help="List of source names to select", type=str)
-    parser.add_argument("-c", "--config", type=str, help="Path to JSON config file", default="config/config.json")
-    args = parser.parse_args()
+    def get_source(self, name) -> Source:
+        """
+        Get a source by name.
 
-    log_level = "INFO"
-    if args.quiet:
-        log_level = "WARNING"
-    elif args.verbose:
-        log_level = "DEBUG"
-    logging.basicConfig(level=log_level, format='%(asctime)s %(name)-24s %(levelname)-8s %(message)s')
+        Args:
+            name (str): The name of the source to retrieve.
 
-    if args.sources:
-        args.sources = args.sources.split(",")
-
-    server = Server(config_path=args.config,
-                    quiet=args.quiet,
-                    sources=args.sources)
-    server.run()
+        Returns:
+            Source: The source object.
+        """
+        if name in self.sources:
+            return self.sources[name]
+        else:
+            raise ValueError(f"Source {name} not found")

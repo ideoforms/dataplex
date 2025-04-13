@@ -5,6 +5,7 @@
 from typing import Optional, Union, Literal
 from pydantic import BaseModel
 import json
+import yaml
 
 #--------------------------------------------------------------------------------
 # Sources
@@ -84,4 +85,7 @@ class Config(BaseModel):
     destinations: list[DestinationUnion]
 
 def load_config(config_path: str):
-    return Config(**(json.load(open(config_path))))
+    if config_path.endswith(".json"):
+        return Config(**(json.load(open(config_path))))
+    elif config_path.endswith(".yaml") or config_path.endswith(".yml"):
+        return Config(**(yaml.safe_load(open(config_path))))

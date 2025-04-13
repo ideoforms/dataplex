@@ -1,10 +1,7 @@
-import math
 import time
-import struct
-import threading
 
 try:
-    import pyaudio
+    from signalflow import *
 except ModuleNotFoundError:
     pass
 
@@ -12,32 +9,20 @@ from .source import Source
 
 
 class SourceAudio (Source):
-    def __init__(self, block_size: int = 256):
-        self.audio = pyaudio.PyAudio()
-        self.block_size = block_size
-        self.stream = self.audio.open(format=pyaudio.paInt16,
-                                      channels=1,
-                                      rate=44100,
-                                      input=True,
-                                      frames_per_buffer=self.block_size)
-        self.stream.start_stream()
-
-        self.buffer = self.stream.read(self.block_size)
-
-        self.read_thread = threading.Thread(target=self.read_thread)
-        self.read_thread.setDaemon(True)
-        self.read_thread.start()
-
-    def read_thread(self):
-        while True:
-            self.buffer = self.stream.read(self.block_size)
+    def __init__(self):
+        super().__init__()
+        graph = AudioGraph()
+        self.input_node = AudioIn(1)
+        self.rms = RMS(self.input_node)
+        graph.add_node(self.rms)
+    
+    def set_input_node(self, node: Node):
+        assert isinstance(node, Node), "Input node must be a SignalFlow Node"
+        self.input_node = node
 
     def collect(self):
-        values = struct.unpack("%dh" % (len(self.buffer) / 2), self.buffer)
-        mean = sum([sample * sample for sample in values]) / float(len(self.buffer))
-        rms = math.sqrt(mean) / 32768.0
         data = {
-            "rms": rms
+            "rms": self.rms.output_buffer[0][0]
         }
 
         return data
