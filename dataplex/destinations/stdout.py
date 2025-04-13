@@ -26,10 +26,7 @@ class DestinationStdout (Destination):
         print("%-19s" % data["time"].strftime(settings.time_format), end=' ')
         for key in self.field_names:
             if data[key].value is not None:
-                values = "[%.2f, %.2f]" % (
-                    data[key].value,
-                    data[key].normalised
-                )
+                values = "[%.2f, %.2f]" % (data[key].value, data[key].normalised)
                 print("%-19s" % values, end=' ')
             else:
                 print("%-19s" % "", end=' ')

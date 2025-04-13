@@ -11,6 +11,7 @@ from .source import Source
 class SourceAudio (Source):
     def __init__(self):
         super().__init__()
+        self.field_names = ["rms"]
         graph = AudioGraph()
         self.input_node = AudioIn(1)
         self.rms = RMS(self.input_node)
@@ -22,7 +23,7 @@ class SourceAudio (Source):
 
     def collect(self):
         data = {
-            "rms": self.rms.output_buffer[0][0]
+            "rms": float(self.rms.output_buffer[0][0])
         }
 
         return data
