@@ -1,16 +1,15 @@
+import sys
 import time
 import logging
-import argparse
 import datetime
 from collections import OrderedDict
-
-from . import settings
 
 from .config import load_config
 from .settings import global_history_length, recent_history_length
 from .sources import Source, SourceAudio, SourceCSV, SourcePakbus, SourceUltimeter, SourceWebcam, SourceJDP, SourceSerial
 from .destinations import DestinationJDP, DestinationCSV, DestinationOSC, DestinationStdout
 from .statistics.ecdf import ECDFNormaliser
+from .buffer import RollingFeatureBuffer
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +36,8 @@ class Dataplex:
         self.config = config.config
         source_configs = config.sources
         destination_configs = config.destinations
+
+        self.rolling_buffers = []
         
         #--------------------------------------------------------------
         # Init: Sources
@@ -98,7 +99,6 @@ class Dataplex:
         # Init: Destinations
         #--------------------------------------------------------------
         self.destinations = []
-
         
         #--------------------------------------------------------------
         # Iterate over configured destinations
@@ -200,6 +200,9 @@ class Dataplex:
         if self.on_record_callback:
             self.on_record_callback(self.data)
 
+        for rolling_buffer in self.rolling_buffers:
+            rolling_buffer.append(self.data)
+
         return self.data
 
     def run(self):
@@ -244,3 +247,14 @@ class Dataplex:
             return self.sources[name]
         else:
             raise ValueError(f"Source {name} not found")
+    
+    def create_rolling_buffer(self, max_size: int = sys.maxsize) -> RollingFeatureBuffer:
+        """
+        Create a rolling buffer for the current data.
+
+        Returns:
+            RollingBuffer: The rolling buffer object.
+        """
+        buffer = RollingFeatureBuffer(max_size=max_size)
+        self.rolling_buffers.append(buffer)
+        return buffer

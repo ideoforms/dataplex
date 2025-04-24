@@ -1,11 +1,30 @@
 #!/usr/bin/env python3
 
-from jdp import JDPClient
-import argparse
 import json
+import argparse
+import numpy as np
+from jdp import JDPClient
 from signalflow import *
+from isobar import frequency_to_midi_note
 from dataplex import Dataplex
 from dataplex.utils import serialise_data
+
+def segment_contiguous(array, min_length=10):
+    segmented_values = []
+    if len(array) > 0:
+        current_value = array[0]
+        count = 1
+        for value in array[1:]:
+            if value == current_value:
+                count += 1
+            else:
+                if count >= min_length:
+                    segmented_values.append((float(current_value), count))
+                current_value = value
+                count = 1
+        if count >= min_length:
+            segmented_values.append((float(current_value), count))
+    return segmented_values
 
 
 def main(args):
@@ -27,10 +46,23 @@ def main(args):
             ]
         }})
 
-    dataplex = Dataplex(config_file="config/audio-features.yaml")
+        if np.all(feature_buffer[-20:].rms < 0.01):
+            buffer_length = len(feature_buffer)
+            if buffer_length > 10:
+                notes = frequency_to_midi_note(feature_buffer.f0)
+                notes = notes[notes != None]
+                notes = np.round(notes)
+                notes_segmented = segment_contiguous(notes, min_length=10)
+                print(notes_segmented)
+
+            feature_buffer.reset()
+
+    dataplex = Dataplex("config/audio-features.yaml")
     dataplex.on_record_callback = on_record
 
-    datascope_config = json.load(open("datascope-config.json"))
+    feature_buffer = dataplex.create_rolling_buffer()
+
+    datascope_config = json.load(open("config/datascope-config.json"))
     client.send({"config": datascope_config})
 
     if not args.live:
