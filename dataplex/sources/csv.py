@@ -25,7 +25,7 @@ class SourceCSV (Source):
         self.rate = rate
         df = pd.read_csv(path, parse_dates=[timestamp_field_name])
         self.records = iter(df.to_dict(orient="records"))
-        self.field_names = list(df.columns)
+        self.property_names = list(df.columns)
 
         self.t0_log = None
         self.t0_time = None

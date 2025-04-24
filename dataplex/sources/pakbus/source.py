@@ -11,7 +11,7 @@ PAKBUS_DEV = "/dev/cu.usbserial-FTGOJL30"
 #----------------------------------------------------------------------
 # translations from BWS names to shortnames
 #----------------------------------------------------------------------
-PAKBUS_FIELD_NAMES = {
+PAKBUS_property_names = {
     "Batt_Volt" : "battery",
     "AirTC"     : "temperature",
     "RH"        : "humidity",
@@ -48,7 +48,7 @@ class SourcePakbus(Source):
 		data["time"] = int(time.time())
 
 		for name in FIELDS:
-			longname = ([n for n in list(PAKBUS_FIELD_NAMES.keys()) if PAKBUS_FIELD_NAMES[n] == name])[0]
+			longname = ([n for n in list(PAKBUS_property_names.keys()) if PAKBUS_property_names[n] == name])[0]
 
 			#--------------------------------------------------------------
 			# get each of our parameters from the device.

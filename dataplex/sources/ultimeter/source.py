@@ -12,11 +12,11 @@ FIELDS = [
 
 class SourceUltimeter:
     def __init__(self,
-                 field_names: list[str] = FIELDS,
+                 property_names: list[str] = FIELDS,
                  port: Optional[str] = None):
         self.ultimeter = ultimeter.Ultimeter(port=port)
         self.ultimeter.start()
-        self.field_names = field_names
+        self.property_names = property_names
 
     def __str__(self):
         return ("Ultimeter")
@@ -24,7 +24,7 @@ class SourceUltimeter:
     def collect(self):
         data = {}
 
-        for name in self.field_names:
+        for name in self.property_names:
             if name in self.ultimeter.values:
                 data[name] = self.ultimeter.values[name]
 

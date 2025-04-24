@@ -14,7 +14,7 @@ class SourceConfig(BaseModel):
     name: Optional[str] = None
     type: str
     enabled: Optional[bool] = True
-    field_names: Optional[list[str]]
+    properties: Optional[list[str]]
 
 class UltimeterSourceConfig(SourceConfig):
     type: Literal['ultimeter']
@@ -62,6 +62,9 @@ class CSVDestinationConfig(BaseModel):
     type: Literal['csv']
     path: str
 
+class StdoutDestinationConfig(BaseModel):
+    type: Literal['stdout']
+
 #--------------------------------------------------------------------------------
 # Union types for sources and destinations
 #--------------------------------------------------------------------------------
@@ -74,15 +77,21 @@ SourceUnion = Union[AudioSourceConfig,
                     UltimeterSourceConfig]
 DestinationUnion = Union[OSCDestinationConfig,
                          CSVDestinationConfig,
-                         JDPDestinationConfig]
+                         JDPDestinationConfig,
+                         StdoutDestinationConfig]
 
 #--------------------------------------------------------------------------------
 # Top-level config
 #--------------------------------------------------------------------------------
 
+class GeneralConfig(BaseModel):
+    read_interval: Optional[float] = 0.25
+
 class Config(BaseModel):
+    config: GeneralConfig
     sources: list[SourceUnion]
     destinations: list[DestinationUnion]
+
 
 def load_config(config_path: str):
     if config_path.endswith(".json"):

@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class SourceSerial (Source):
     def __init__(self,
-                 field_names: list[str],
+                 property_names: list[str],
                  port_name: str = None,
                  record_delimiter: str = "\n",
                  field_delimiter: str = ","):
@@ -18,13 +18,13 @@ class SourceSerial (Source):
         Reads data from a serial connection
 
         Args:
-            field_names (list[str]): The list of field names for the data received over the connection.
+            property_names (list[str]): The list of field names for the data received over the connection.
             port (str, optional): Path to serial port (e.g., "/dev/cu.usbmodem2101"). Defaults to None.
             record_delimiter (str, optional): In the serial protocol, the record delimiter. Defaults to "\n".
             field_delimiter (str, optional): In the serial protocol, the field delimiter. Defaults to ",".
         """
         super().__init__()
-        self.field_names = field_names
+        self.property_names = property_names
         self.port_name = port_name
         self.record_delimiter = record_delimiter
         self.field_delimiter = field_delimiter
@@ -32,7 +32,7 @@ class SourceSerial (Source):
         self.port = None
         self.buffer = ""
         self.handler = None
-        self.data = dict((field_name, None) for field_name in field_names)
+        self.data = dict((field_name, None) for field_name in property_names)
         
         self.read_thread = None
 
@@ -110,10 +110,10 @@ class SourceSerial (Source):
                         self.buffer = self.buffer[position + 1:]
                         values = [float(value) for value in line.split(self.field_delimiter)]
                         logger.debug("Serial: Read values: %s" % values)
-                        if len(values) != len(self.field_names):
+                        if len(values) != len(self.property_names):
                             raise RuntimeError("Unexpected number of fields read from serial connection (found %d, expected %d)" %
-                                               (len(values), len(self.field_names)))
-                        for field, value in zip(self.field_names, values):
+                                               (len(values), len(self.property_names)))
+                        for field, value in zip(self.property_names, values):
                             self.data[field] = value
 
                     time.sleep(0.01)
@@ -130,7 +130,7 @@ class SourceSerial (Source):
 
 
 if __name__ == "__main__":
-    source = SourceSerial(field_names=["value"])
+    source = SourceSerial(property_names=["value"])
     source.start()
 
     while True:

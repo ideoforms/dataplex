@@ -31,13 +31,18 @@ class Dataplex:
         Raises:
             ValueError: If an invalid Source or Destination type is given.
         """
-        config = load_config(config_file)
+        self.on_record_callback = None
 
+        config = load_config(config_file)
+        self.config = config.config
+        source_configs = config.sources
+        destination_configs = config.destinations
+        
         #--------------------------------------------------------------
         # Init: Sources
         #--------------------------------------------------------------
         self.sources = OrderedDict()
-        for source_config in config.sources:
+        for source_config in source_configs:
             if not source_config.enabled:
                 logger.info("Server: Skipping source %s due to enabled=False" % str(source_config.name))
                 continue
@@ -49,20 +54,20 @@ class Dataplex:
             if source_config.type == "pakbus":
                 source = SourcePakbus()
             elif source_config.type == "ultimeter":
-                source = SourceUltimeter(field_names=source_config.field_names,
+                source = SourceUltimeter(property_names=source_config.properties,
                                          port=source_config.port)
             elif source_config.type == "csv":
                 source = SourceCSV(path=source_config.path,
                                    rate=source_config.rate)
             elif source_config.type == "jdp":
-                source = SourceJDP(field_names=source.field_names,
+                source = SourceJDP(property_names=source.properties,
                                    port=source.port)
             elif source_config.type == "video":
                 source = SourceWebcam(source.camera_index)
             elif source_config.type == "audio":
-                source = SourceAudio()
+                source = SourceAudio(properties=source_config.properties)
             elif source_config.type == "serial":
-                source = SourceSerial(field_names=source.field_names,
+                source = SourceSerial(property_names=source.properties,
                                       port_name=source.port_name)
             else:
                 raise ValueError(f"Source type not known: {source_config.type}")
@@ -74,17 +79,17 @@ class Dataplex:
         #--------------------------------------------------------------
         # Init: Fields
         #--------------------------------------------------------------
-        self.field_names = []
+        self.property_names = []
         for source in self.sources.values():
-            if source.field_names:
-                self.field_names += source.field_names
-        self.field_names = [n for n in self.field_names if n != "time"]
+            if source.property_names:
+                self.property_names += source.property_names
+        self.property_names = [n for n in self.property_names if n != "time"]
 
         self.data = {}
 
         for source in self.sources.values():
-            if source.field_names:
-                for name in source.field_names:
+            if source.property_names:
+                for name in source.property_names:
                     item = ECDFNormaliser(global_history_length,
                                           recent_history_length)
                     self.data[name] = item
@@ -94,15 +99,13 @@ class Dataplex:
         #--------------------------------------------------------------
         self.destinations = []
 
-        if not quiet:
-            self.destinations.append(DestinationStdout(field_names=self.field_names))
-
+        
         #--------------------------------------------------------------
         # Iterate over configured destinations
         #--------------------------------------------------------------
-        for destination_config in config.destinations:
+        for destination_config in destination_configs:
             if destination_config.type == "csv":
-                destination = DestinationCSV(field_names=self.field_names,
+                destination = DestinationCSV(property_names=self.property_names,
                                               path_template=destination_config.path)
             elif destination_config.type == "osc":
                 destination = DestinationOSC(destination_config.host,
@@ -110,6 +113,8 @@ class Dataplex:
             elif destination_config.type == "jdp":
                 destination = DestinationJDP(destination_config.host,
                                              destination_config.port)
+            elif destination_config.type == "stdout":
+                destination = DestinationStdout(property_names=self.property_names)
             else:
                 raise ValueError(f"Destination type not known: f{destination_config.type}")
         
@@ -171,9 +176,9 @@ class Dataplex:
         # skip this iteration.
         #--------------------------------------------------------------
         missing_data = False
-        for key in self.field_names:
+        for key in self.property_names:
             if self.data[key].value is None:
-                logger.info("Awaiting data for %s..." % key)
+                logger.warning("Awaiting data for %s..." % key)
                 missing_data = True
 
         #--------------------------------------------------------------
@@ -188,6 +193,12 @@ class Dataplex:
         #--------------------------------------------------------------
         for destination in self.destinations:
             destination.send(self.data)
+        
+        #--------------------------------------------------------------
+        # If present, trigger the on_record callback.
+        #--------------------------------------------------------------
+        if self.on_record_callback:
+            self.on_record_callback(self.data)
 
         return self.data
 
@@ -195,6 +206,14 @@ class Dataplex:
         """
         Run the main server process, blocking indefinitely.
         """
+
+        #------------------------------------------------------------------------------
+        # Run any initialisation code for sources whose properties may have been
+        # set during setup.
+        #------------------------------------------------------------------------------
+        for source in self.sources.values():
+            source.start()
+
         try:
             while True:
                 self.next()
@@ -205,7 +224,7 @@ class Dataplex:
                 if isinstance(list(self.sources.keys())[0], SourceCSV):
                     time.sleep(0.01)
                 else:
-                    time.sleep(settings.read_interval)
+                    time.sleep(self.config.read_interval)
 
         except KeyboardInterrupt:
             logger.info("Killed by ctrl-c")

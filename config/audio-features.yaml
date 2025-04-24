@@ -1,0 +1,32 @@
+config:
+  read_interval: 0.03
+sources:
+  - name: audio
+    type: audio
+    properties:
+      - rms
+      - f0
+      - f0-voiced-prob
+      - spectral-flux
+      - spectral-centroid
+      - spectral-flatness
+    # properties:
+    #   - feature: rms
+    #     name: rms
+      # - feature: vamp:pyin:yin:f0
+      #   name: f0
+      # - feature: vamp:bbc-vamp-plugins:bbc-spectral-flux:spectral-flux
+      #   name: flux
+      # - feature: vamp:vamp-libxtract:flatness:flatness
+      #   name: flatness
+# - name: position
+#   type: jdp
+#   port: 48000
+#   properties:
+#     - x
+#     - y
+#     - z
+destinations:
+  - type: stdout
+  - type: csv
+    path: logs/data.%Y%m%d.%H%M%S.csv

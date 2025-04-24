@@ -5,17 +5,17 @@ from .source import Source
 
 class SourceJDP (Source):
     def __init__(self,
-                 field_names: list[str],
+                 property_names: list[str],
                  port: int = 48000):
         """
         Listen for JSON Datagram Protocol packets.
 
         Args:
-            field_names (list[str]): The list of expected fields
+            property_names (list[str]): The list of expected fields
             port (int): The port to listen on.
         """
         super().__init__()
-        self.field_names = field_names
+        self.property_names = property_names
         self.server = jdp.Server(port)
         self.server.start()
         self.server.add_callback(self.handle_data)

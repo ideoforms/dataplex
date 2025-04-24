@@ -4,11 +4,6 @@
 time_format = "%Y/%m/%d-%H:%M:%S"
 
 #----------------------------------------------------------------------
-# sleep between pulling data from inputs
-#----------------------------------------------------------------------
-read_interval = 0.25
-
-#----------------------------------------------------------------------
 # lines between printing output
 #----------------------------------------------------------------------
 print_interval = 40
@@ -19,7 +14,7 @@ print_interval = 40
 # so if rain is registered at one tick, the normalised value will
 # remain at 1.0 for half an hour.
 #----------------------------------------------------------------------
-global_history_length = 3600
+global_history_length = 36000
 recent_history_length = 360
 
 #----------------------------------------------------------------------
