@@ -8,7 +8,7 @@ from collections import OrderedDict
 from .config import load_config, GeneralConfig
 from .settings import global_history_length, recent_history_length
 from .sources import Source, SourceAudio, SourceCSV, SourceOSC, SourcePakbus, SourceUltimeter, SourceWebcam, SourceJDP, SourceSerial
-from .destinations import Destination, DestinationJDP, DestinationCSV, DestinationOSC, DestinationStdout
+from .destinations import Destination, DestinationJDP, DestinationCSV, DestinationOSC, DestinationStdout, DestinationMidi, DestinationScope
 from .statistics.ecdf import ECDFNormaliser
 from .buffer import RollingFeatureBuffer
 
@@ -30,7 +30,9 @@ class Dataplex:
         "csv": DestinationCSV,
         "osc": DestinationOSC,
         "jdp": DestinationJDP,
-        "stdout": DestinationStdout
+        "stdout": DestinationStdout,
+        "midi": DestinationMidi,
+        "scope": DestinationScope
     }
 
     def __init__(self,
@@ -279,6 +281,7 @@ class Dataplex:
                                                   recent_history_length)
                             self.data[property_subname] = item
                             self.property_names.append(property_subname)
+        return source
 
     def add_destination(self,
                         destination: Optional[Destination] = None,
@@ -299,6 +302,8 @@ class Dataplex:
             self.destinations.append(destination)
         else:
             raise ValueError("Either destination or type must be provided")
+    
+        return destination
 
     def get_source(self, name) -> Source:
         """
