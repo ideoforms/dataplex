@@ -4,7 +4,7 @@ from .destination import Destination
 from .. import settings
 
 class DestinationStdout (Destination):
-    def __init__(self, property_names: list[str]):
+    def __init__(self, property_names: list[str] = None):
         self.property_names = property_names
         self.phase = 0
 
@@ -12,6 +12,10 @@ class DestinationStdout (Destination):
         return "Standard output"
 
     def send(self, data: dict):
+        if self.property_names is None:
+            self.property_names = list(data.keys())
+            self.property_names = list(filter(lambda x: x not in ["time"], self.property_names))
+            
         #--------------------------------------------------------------
         # add a heading every N lines for readability.
         #--------------------------------------------------------------
@@ -24,6 +28,7 @@ class DestinationStdout (Destination):
         # add a heading every N lines for readability.
         #--------------------------------------------------------------
         print("%-19s" % data["time"].strftime(settings.time_format), end=' ')
+
         for key in self.property_names:
             if data[key].value is not None:
                 values = "[%.2f, %.2f]" % (data[key].value, data[key].normalised)

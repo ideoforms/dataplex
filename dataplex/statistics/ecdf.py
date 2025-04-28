@@ -110,6 +110,13 @@ class ECDFNormaliser(object):
             if add:
                 self.register(value)
 
+            # Override with normal normaliser!
+            if len(self.history) > 1:
+                history_min = min(self.history)
+                history_max = max(self.history)
+                if history_max - history_min > 0:
+                    normalized = (value - history_min) / float(history_max - history_min)
+
             return normalized
 
         elif self.value is not None:

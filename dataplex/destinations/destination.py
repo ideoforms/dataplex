@@ -1,2 +1,2 @@
-class Destination(object):
+class Destination:
     pass

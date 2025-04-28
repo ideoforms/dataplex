@@ -88,9 +88,9 @@ class GeneralConfig(BaseModel):
     read_interval: Optional[float] = 0.25
 
 class Config(BaseModel):
-    config: GeneralConfig
-    sources: list[SourceUnion]
-    destinations: list[DestinationUnion]
+    config: GeneralConfig = GeneralConfig()
+    sources: list[SourceUnion] = []
+    destinations: list[DestinationUnion] = []
 
 
 def load_config(config_path: str):

@@ -4,7 +4,6 @@ import argparse
 import pandas as pd
 import datetime
 
-from .. import settings
 from .source import Source
 from ..settings import timestamp_field_name
 

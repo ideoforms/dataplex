@@ -22,8 +22,8 @@ if __name__ == "__main__":
     logging.basicConfig(level=log_level, format='%(asctime)s %(name)-24s %(levelname)-8s %(message)s')
 
     server = dataplex.Dataplex(config_path=args.config,
-                             quiet=args.quiet,
-                             sources=args.sources)
+                               quiet=args.quiet,
+                               sources=args.sources)
     output = mido.open_output("IAC Driver Bus 1")
 
     while True:
