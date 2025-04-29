@@ -1,3 +1,5 @@
+config:
+  read_interval: 0.5
 sources:
   - name: ultimeter
     type: ultimeter
@@ -9,3 +11,6 @@ sources:
     enabled: true
 destinations:
   - type: stdout
+  - type: jdp
+    host: 192.168.1.163
+    port: 48000
