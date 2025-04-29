@@ -15,26 +15,23 @@ if __name__ == "__main__":
     print("Creating Dataplex server...")
 
     dataplex = Dataplex()
-    
+
     # TODO: Have the default behaviour be to read as soon as a new frame arrives (if a "push" style source is present)
     dataplex.config.read_interval = 0.01
     dataplex.add_source(type="osc", port=8000, properties={"/imu/gyro": "vec3"})
-    dataplex.add_destination(type="stdout")
+    dataplex.add_destination("stdout")
 
     # TODO: Have property_names inferred automatically
-    dataplex.add_destination(type="csv", property_names=["/imu/gyro_x", "/imu/gyro_y", "/imu/gyro_z"])
-    dataplex.add_destination(type="scope", property_names=["/imu/gyro_x", "/imu/gyro_y", "/imu/gyro_z"])
+    dataplex.add_destination("csv", property_names=dataplex.property_names)
+    dataplex.add_destination("scope", property_names=dataplex.property_names)
 
-    midi_mapper = dataplex.add_destination(type="midi", port_name="IAC Driver Bus 1")
-    midi_mapper.add_mapping(property="/imu/gyro_x", cc=0)
-    midi_mapper.add_mapping(property="/imu/gyro_y", cc=1)
-    midi_mapper.add_mapping(property="/imu/gyro_z", cc=2)
+    midi_mapper = dataplex.add_destination("midi", port_name="IAC Driver Bus 1")
+    midi_mapper.add_mapping("/imu/gyro_x", cc=0)
+    midi_mapper.add_mapping("/imu/gyro_y", cc=1)
+    midi_mapper.add_mapping("/imu/gyro_z", cc=2)
 
-    # midi_mapper.add_event(property="/imu/gyro_x",
-    #                       when="value_crossed",
-    #                       value=0.25,
-    #                       debounce_time=0.1)
-
-    # would be nice to be able to just do subplots(1, 3)
+    midi_mapper.add_event("/imu/gyro_x", when="value_crossed", value=0.75, note=60)
+    midi_mapper.add_event("/imu/gyro_x", when="value_crossed", value=0.6, note=55)
+    midi_mapper.add_event("/imu/gyro_x", when="value_crossed", value=0.9, note=48)
     
     dataplex.run()

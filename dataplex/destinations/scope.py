@@ -16,8 +16,8 @@ class DestinationScope (Destination):
                 "size": [1.0, plot_height]
             }
 
-        self.client.send({"config": config })
-    
+        self.client.send({"config": config})
+
     def send(self, data):
         message = {}
         for property, value in data.items():

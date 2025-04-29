@@ -27,6 +27,5 @@ sources:
 #     - y
 #     - z
 destinations:
-  - type: stdout
   - type: csv
     path: logs/data.%Y%m%d.%H%M%S.csv

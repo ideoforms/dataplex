@@ -51,7 +51,7 @@ class SourceAudio (Source):
                                              plugin_id=property_name)
             
             # TODO: This smoothing should be configurable
-            feature_node = Smooth(feature_node, 0.9999)
+            # feature_node = Smooth(feature_node, 0.9999)
             self.graph.add_node(feature_node)
             self.feature_nodes[property_name] = feature_node
 

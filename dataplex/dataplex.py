@@ -2,7 +2,7 @@ import sys
 import time
 import logging
 import datetime
-from typing import Optional
+from typing import Optional, Union
 from collections import OrderedDict
 
 from .config import load_config, GeneralConfig
@@ -67,8 +67,8 @@ class Dataplex:
     def read_config_file(self, config_file: str):
         config = load_config(config_file)
         self.config = config.config
-        source_configs = self.config.sources
-        destination_configs = self.config.destinations
+        source_configs = config.sources
+        destination_configs = config.destinations
 
         #--------------------------------------------------------------
         # Init: Sources
@@ -226,21 +226,16 @@ class Dataplex:
         for source in self.sources.values():
             source.start()
 
-        try:
-            while True:
-                self.next()
+        while True:
+            self.next()
 
-                #--------------------------------------------------------------
-                # Wait until next cycle
-                #--------------------------------------------------------------
-                if isinstance(list(self.sources.keys())[0], SourceCSV):
-                    time.sleep(0.01)
-                else:
-                    time.sleep(self.config.read_interval)
-
-        except KeyboardInterrupt:
-            logger.info("Killed by ctrl-c")
-            pass
+            #--------------------------------------------------------------
+            # Wait until next cycle
+            #--------------------------------------------------------------
+            if isinstance(list(self.sources.keys())[0], SourceCSV):
+                time.sleep(0.01)
+            else:
+                time.sleep(self.config.read_interval)
 
     def add_source(self,
                    source: Optional[Source] = None,
@@ -284,8 +279,7 @@ class Dataplex:
         return source
 
     def add_destination(self,
-                        destination: Optional[Destination] = None,
-                        type: Optional[str] = None,
+                        destination: Optional[Union[str, Destination]] = None,
                         **kwargs):
         """
         Add a destination to the server.
@@ -293,15 +287,15 @@ class Dataplex:
         Args:
             destination (Destination): The destination object to add.
         """
-        if type is not None:
-            if type not in Dataplex.DESTINATION_CLASS_MAP:
-                raise ValueError(f"Destination type not known: {type}")
-            destination = Dataplex.DESTINATION_CLASS_MAP[type](**kwargs)
+        if isinstance(destination, str):
+            if destination not in Dataplex.DESTINATION_CLASS_MAP:
+                raise ValueError(f"Destination type not known: {destination}")
+            destination = Dataplex.DESTINATION_CLASS_MAP[destination](**kwargs)
             self.destinations.append(destination)
-        elif destination is not None:
+        elif isinstance(destination, Destination):
             self.destinations.append(destination)
         else:
-            raise ValueError("Either destination or type must be provided")
+            raise ValueError("Destination %s invalid" % destination)
     
         return destination
 
