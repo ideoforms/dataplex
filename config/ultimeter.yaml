@@ -1,0 +1,11 @@
+sources:
+  - name: ultimeter
+    type: ultimeter
+    port: /dev/cu.usbserial-FTELIIL0
+    properties:
+      - wind_speed
+      - wind_dir
+      - temperature
+    enabled: true
+destinations:
+  - type: stdout
