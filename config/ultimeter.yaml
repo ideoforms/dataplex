@@ -1,7 +1,7 @@
 sources:
   - name: ultimeter
     type: ultimeter
-    port: /dev/cu.usbserial-FTELIIL0
+    port: /dev/ttyUSB0
     properties:
       - wind_speed
       - wind_dir

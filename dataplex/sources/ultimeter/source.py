@@ -10,7 +10,7 @@ FIELDS = [
     "humidity"
 ]
 
-class SourceUltimeter:
+class SourceUltimeter (Source):
     def __init__(self,
                  property_names: list[str] = FIELDS,
                  port: Optional[str] = None):
