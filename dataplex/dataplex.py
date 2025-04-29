@@ -87,8 +87,8 @@ class Dataplex:
                 source = SourceCSV(path=source_config.path,
                                    rate=source_config.rate)
             elif source_config.type == "jdp":
-                source = SourceJDP(property_names=source.properties,
-                                   port=source.port)
+                source = SourceJDP(property_names=source_config.properties,
+                                   port=source_config.port)
             elif source_config.type == "video":
                 source = SourceWebcam(source.camera_index)
             elif source_config.type == "audio":

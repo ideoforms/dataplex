@@ -96,7 +96,7 @@ class ECDFNormaliser(object):
             #--------------------------------------------------------------------------
             try:
                 normalized = [ecdf([ histitem[n] for histitem in self.history ], value[n]) for n in range(len(value))]
-            except ZeroDivisionError:
+            except (ZeroDivisionError, KeyError):
                 # not got any history - start from the beginning
                 normalized = (0.5,) * len(value)
             #--------------------------------------------------------------------------

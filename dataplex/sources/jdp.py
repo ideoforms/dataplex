@@ -1,4 +1,4 @@
-import jdp
+from jdp import JDPServer
 import argparse
 
 from .source import Source
@@ -16,16 +16,22 @@ class SourceJDP (Source):
         """
         super().__init__()
         self.property_names = property_names
-        self.server = jdp.Server(port)
+        self.server = JDPServer(port)
         self.server.start()
         self.server.add_callback(self.handle_data)
-        self.data = None
+        self.data = {}
 
     def __str__(self):
         return ("JDP (%s)" % self.server)
 
     def handle_data(self, data: dict):
-        self.data = data
+        for key, value in data.items():
+            if key in self.property_names:
+                # TODO: When receiving the output of ECDFNormaliser
+                if isinstance(value, dict):
+                    self.data[key] = value["value"]
+                else:
+                    self.data[key] = value
 
     def collect(self, blocking: bool = False):
         """
