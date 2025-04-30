@@ -22,6 +22,6 @@ class DestinationScope (Destination):
         message = {}
         for property, value in data.items():
             if property in self.property_names:
-                message[property] = value.value
+                message[property] = value
 
         self.client.send({"data": message})

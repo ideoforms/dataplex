@@ -35,11 +35,10 @@ class DestinationOSC (Destination):
             #    value = self.data_max[name]
 
             try:
-                value = float(record.value)
-                norm = float(record.normalised)
+                value = float(record)
 
                 if value is not None:
-                    self.send_message("/data/%s" % name, value, norm)
+                    self.send_message("/data/%s" % name, value)
             except IndexError:
                 #------------------------------------------------------------------------
                 # haven't yet got any data for this field (might not have read

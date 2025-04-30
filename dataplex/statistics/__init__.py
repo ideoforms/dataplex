@@ -1,1 +1,1 @@
-from .ecdf import ecdf, ECDFNormaliser
+from ..processors.normalise.ecdf import ecdf, ECDFNormaliser

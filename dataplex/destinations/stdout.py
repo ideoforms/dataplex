@@ -30,8 +30,8 @@ class DestinationStdout (Destination):
         print("%-19s" % data["time"].strftime(settings.time_format), end=' ')
 
         for key in self.property_names:
-            if data[key].value is not None:
-                values = "[%.2f, %.2f]" % (data[key].value, data[key].normalised)
+            if data[key] is not None:
+                values = "[%.2f, %.2f]" % (data[key], data[key])
                 print("%-19s" % values, end=' ')
             else:
                 print("%-19s" % "", end=' ')

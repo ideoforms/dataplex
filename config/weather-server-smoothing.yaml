@@ -1,0 +1,22 @@
+sources:
+  - type: jdp
+    port: 48000
+    properties:
+      - name: wind_speed
+        processors:
+          - smooth:
+              smoothing: 0.9
+          - normalise:
+              type: linear
+      - name: wind_dir
+        processors:
+          - smooth:
+              max_rate_change: 0.1
+              smoothing: 0.9
+      # - name: rainfall
+      #   processors:
+      #     - statistic:
+      #         type: max
+      #         window_duration: 3600
+destinations:
+  - type: stdout

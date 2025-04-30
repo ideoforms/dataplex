@@ -6,10 +6,9 @@ from typing import Optional, Union
 from collections import OrderedDict
 
 from .config import load_config, GeneralConfig
-from .settings import global_history_length, recent_history_length
 from .sources import Source, SourceAudio, SourceCSV, SourceOSC, SourcePakbus, SourceUltimeter, SourceWebcam, SourceJDP, SourceSerial
 from .destinations import Destination, DestinationJDP, DestinationCSV, DestinationOSC, DestinationStdout, DestinationMidi, DestinationScope
-from .statistics.ecdf import ECDFNormaliser
+from .processors import ProcessorSmooth, ProcessorLinearNormalise, ProcessorECDFNormalise
 from .buffer import RollingFeatureBuffer
 
 logger = logging.getLogger(__name__)
@@ -54,6 +53,7 @@ class Dataplex:
         self.data = {}
         self.property_names = []
         self.sources = OrderedDict()
+        self.processors = {}
         self.destinations = []
 
         #--------------------------------------------------------------
@@ -78,23 +78,28 @@ class Dataplex:
                 logger.info("Server: Skipping source %s due to enabled=False" % str(source_config.name))
                 continue
 
+            if len(source_config.properties) > 1 and isinstance(source_config.properties[0], dict):
+                property_names = [property["name"] for property in source_config.properties]
+            elif isinstance(source_config.properties, list):
+                property_names = source_config.properties
+
             if source_config.type == "pakbus":
                 source = SourcePakbus()
             elif source_config.type == "ultimeter":
-                source = SourceUltimeter(property_names=source_config.properties,
+                source = SourceUltimeter(property_names=property_names,
                                          port=source_config.port)
             elif source_config.type == "csv":
                 source = SourceCSV(path=source_config.path,
                                    rate=source_config.rate)
             elif source_config.type == "jdp":
-                source = SourceJDP(property_names=source_config.properties,
+                source = SourceJDP(property_names=property_names,
                                    port=source_config.port)
             elif source_config.type == "video":
                 source = SourceWebcam(source.camera_index)
             elif source_config.type == "audio":
-                source = SourceAudio(properties=source_config.properties)
+                source = SourceAudio(properties=property_names)
             elif source_config.type == "serial":
-                source = SourceSerial(property_names=source.properties,
+                source = SourceSerial(property_names=property_names,
                                       port_name=source.port_name)
             else:
                 raise ValueError(f"Source type not known: {source_config.type}")
@@ -107,9 +112,31 @@ class Dataplex:
                 self.property_names += [n for n in source.property_names if n != "time"]
 
                 for name in source.property_names:
-                    item = ECDFNormaliser(global_history_length,
-                                          recent_history_length)
-                    self.data[name] = item
+                    self.data[name] = None
+
+            for property in source_config.properties:
+                if isinstance(property, dict):
+                    if "processors" in property:
+                        self.processors[property["name"]] = []
+                        for processor in property["processors"]:
+                            assert len(processor.keys()) == 1, "Processor must be a dict with a single key"
+                            processor_type = list(processor.keys())[0]
+                            processor_params = processor[processor_type]
+                            if processor_type == "smooth":
+                                processor = ProcessorSmooth(**processor_params)
+                                self.processors[property["name"]].append(processor)
+                            elif processor_type == "normalise":
+                                normalise_type = processor_params["type"]
+                                del processor_params["type"]
+                                if normalise_type == "linear":
+                                    processor = ProcessorLinearNormalise(**processor_params)
+                                elif normalise_type == "ecdf":
+                                    processor = ProcessorECDFNormalise(**processor_params)
+                                else:
+                                    raise ValueError(f"Normalise type not known: {normalise_type}")
+                                self.processors[property["name"]].append(processor)
+                            else:
+                                logger.warning("Processor type %s not implemented" % processor_type)
 
         #--------------------------------------------------------------
         # Init: Destinations
@@ -162,10 +189,10 @@ class Dataplex:
             if key == "time":
                 self.data[key] = record[key]
             else:
-                if isinstance(self.data[key], ECDFNormaliser):
-                    self.data[key].register(record[key])
-                else:
-                    self.data[key] = record[key]
+                value = record[key]
+                for processor in self.processors.get(key, []):
+                    value = processor.process(value)
+                    self.data[key] = value
 
         #--------------------------------------------------------------
         # If any of our data sources are not yet set (returning None),
@@ -174,9 +201,6 @@ class Dataplex:
         missing_data = False
         for key in self.property_names:
             if self.data[key] is None:
-                logger.warning("Awaiting data for %s..." % key)
-                missing_data = True
-            elif isinstance(self.data[key], ECDFNormaliser) and self.data[key].value is None:
                 logger.warning("Awaiting data for %s..." % key)
                 missing_data = True
 
@@ -263,18 +287,14 @@ class Dataplex:
             for property_name, property_type in properties.items():
                 if property_name not in self.property_names:
                     if property_type == "float":
-                        item = ECDFNormaliser(global_history_length,
-                                              recent_history_length)
-                        self.data[property_name] = item
+                        self.data[property_name] = None
                         
                         self.property_names.append(property_name)
                     elif property_type == "vec3":
                         for suffix in ["x", "y", "z"]:
                             property_subname = "%s_%s" % (property_name, suffix)
                             print("Adding property %s" % property_subname)
-                            item = ECDFNormaliser(global_history_length,
-                                                  recent_history_length)
-                            self.data[property_subname] = item
+                            self.data[property_subname] = None
                             self.property_names.append(property_subname)
         return source
 

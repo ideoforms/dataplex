@@ -33,7 +33,7 @@ class DestinationCSV (Destination):
         # write the latest set of data to logfile.
         #--------------------------------------------------------------
         now = str(data["time"])
-        row = [now] + ["%.3f" % data[key].value for key in self.property_names]
+        row = [now] + ["%.3f" % data[key] for key in self.property_names]
         self.logwriter.writerow(row)
         logger.debug("DestinationCSV: Log row: %s" % row)
 

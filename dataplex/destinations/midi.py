@@ -17,7 +17,7 @@ class EventTracker:
         self.last_value = None
 
     def process(self, data):
-        current_value = data[self.property].normalised
+        current_value = data[self.property]
 
         if self.last_triggered is None or (time.time() - self.last_triggered >= self.debounce_time):
             if self.when == "value_crossed":
@@ -64,7 +64,7 @@ class DestinationMidi (Destination):
         for name, record in list(data.items()):
             if name in self.mappings:
                 cc = self.mappings[name]
-                msg = mido.Message("control_change", channel=0, control=cc, value=int(record.normalised * 127))
+                msg = mido.Message("control_change", channel=0, control=cc, value=int(record * 127))
                 self.output.send(msg)
         for event_tracker in self.event_trackers:
             event_tracker.process(data)

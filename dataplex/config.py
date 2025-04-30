@@ -14,7 +14,7 @@ class SourceConfig(BaseModel):
     name: Optional[str] = None
     type: str
     enabled: Optional[bool] = True
-    properties: Optional[list[str]]
+    properties: Optional[Union[list[str], list[dict]]]
 
 class UltimeterSourceConfig(SourceConfig):
     type: Literal['ultimeter']
