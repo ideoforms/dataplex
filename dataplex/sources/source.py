@@ -9,3 +9,16 @@ class Source:
         """
         pass
         
+    def collect(self, blocking: bool = False):
+        """
+        Return new data, if available.
+
+        Args:
+            blocking (bool, optional): If True, blocks until new data is available.
+                                       In the general dataplex loop, a non-blocking collect() is always used.
+
+        Returns:
+            dict: The new data, or None if no new data is available.
+        """
+        if self.data:
+            return self.data
