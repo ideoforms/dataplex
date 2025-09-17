@@ -2,6 +2,7 @@
 # Python function library for PAKBUS communication
 #
 # (c) 2009 Dietrich Feist, Max Planck Institute for Biogeochemistry, Jena Germany
+# 2025: Ported to Python 3 using Claude Sonnet 4
 #
 # Licensed under the GNU General Public License
 #
@@ -19,10 +20,8 @@
 # Global imports
 #
 import struct
-import string
-import sys
-
 import socket
+import serial
 
 #
 # Global definitions
@@ -74,9 +73,7 @@ LS_PAUSE    = 0b1100
 #
 # Global variables
 #
-if 'transact' not in vars():
-    transact = 0     # Running 8-bit transaction counter (initialized only if it does not exist)
-
+transact = 0     # Running 8-bit transaction counter
 
 #
 # Send packet over PakBus
@@ -86,23 +83,14 @@ if 'transact' not in vars():
 # - frame packet with \xBD characters
 #
 def send(s, pkt):
-    # s: socket object
-    # pkt: unquoted, unframed PakBus packet (just header + message)
-    # if isinstance(pkt, str):
-        # pkt = pkt.encode('latin-1')
-    
-    sig_nullifier = calcSigNullifier(calcSigFor(pkt))
-    # if isinstance(sig_nullifier, str):
-    #     sig_nullifier = sig_nullifier.encode('latin-1')
-    
-    frame = quote(pkt + sig_nullifier)
-    # if isinstance(frame, str):
-    #     frame = frame.encode('latin-1')
-    
+    #
+    # pkt must be a bytes object
+    #
+    frame = quote(pkt + calcSigNullifier(calcSigFor(pkt)))
     msg = b'\xBD' + frame + b'\xBD'
-    print(msg)
+    # print("Sending: ", "".join([hex(b) for b in msg]))
     s.write(msg)
-    s.flush()
+
 
 #
 # Receive packet over PakBus
@@ -112,28 +100,38 @@ def send(s, pkt):
 # - check signature
 #
 def recv(s):
-    # s: socket object
-    pkt = ''
-    byte = None
-
-    # DJJ had to hack this up to generate timeouts -- pySerial does not produce an exception,
-    # just returns 0 bytes.
-    while byte != '\xBD':
-        byte = s.read(1) # Read until first \xBD frame character
-        if len(byte) == 0: raise socket.timeout
-    while byte == '\xBD': 
-        byte = s.read(1) # Read until character other than \xBD
-        if len(byte) == 0: raise socket.timeout
-    while byte != '\xBD': # Read until next occurence of \xBD character
-        pkt += byte
+    #
+    # returns a bytes object
+    #
+    
+    # Read until first \xBD frame character
+    byte = s.read(1)
+    while byte != b'\xBD':
         byte = s.read(1)
-        # necessary for serial
-        if len(byte) == 0: raise socket.timeout
-    pkt = unquote(pkt)  # Unquote quoted characters
-    if calcSigFor(pkt): # Calculate signature (should be zero)
-        return None     # Signature not zero!
-    else:
-        return pkt[:-2] # Strip last 2 signature bytes and return packet
+        if not byte:
+            raise socket.timeout("PakBus: timeout waiting for start of frame")
+
+    # Read until character other than \xBD
+    while byte == b'\xBD':
+        byte = s.read(1)
+        if not byte:
+            raise socket.timeout("PakBus: timeout waiting for packet content")
+
+    # Read until next occurence of \xBD character
+    msg = b''
+    while byte != b'\xBD':
+        msg += byte
+        byte = s.read(1)
+        if not byte:
+            raise socket.timeout("PakBus: timeout waiting for end of frame")
+
+    frame = unquote(msg)
+    
+    sig = calcSigFor(frame[:-2])
+    if calcSigNullifier(sig) != frame[-2:]:
+        raise Exception("PakBus: checksum error")
+
+    return frame[:-2]
 
 
 #
@@ -156,20 +154,16 @@ def newTranNbr():
 # Generate PakBus header
 #
 def PakBus_hdr(DstNodeId, SrcNodeId, HiProtoCode, ExpMoreCode = 0x2, LinkState = LS_READY, Priority = 0x1, HopCnt = 0x0, DstPhyAddr = None, SrcPhyAddr = None):
-    # DstNodeId:   Node ID of the message destination
-    # SrcNodeId:   Node ID of the message source
-    # HiProtoCode: Higher level protocol code (4 bits); 0x0: PakCtrl, 0x1: BMP5
-    # ExpMoreCode: Whether client should expect another packet (2 bits)
-    # LinkState:   Link state (4 bits)
-    # Priority:    Message priority on the network (2 bits)
-    # HopCnt:      Number of hops to destination (4 bits)
-    # DstPhyAddr:  Address where this packet is going (12 bits)
-    # SrcPhyAddr:  Address of the node that sent the packet (12 bits)
+    #
+    # DstNodeId, SrcNodeId must be integers
+    # HiProtoCode, ExpMoreCode, LinkState, Priority, HopCnt must be integers
+    # DstPhyAddr, SrcPhyAddr must be integers
+    #
+    # returns a bytes object
+    #
+    if DstPhyAddr is None: DstPhyAddr = DstNodeId
+    if SrcPhyAddr is None: SrcPhyAddr = SrcNodeId
 
-    # set default physical addresses equal to node ID
-    if not DstPhyAddr: DstPhyAddr = DstNodeId
-    if not SrcPhyAddr: SrcPhyAddr = SrcNodeId
-    # bitwise encoding of header fields
     hdr = struct.pack('>4H',
         (LinkState & 0xF) << 12   | (DstPhyAddr & 0xFFF),
         (ExpMoreCode & 0x3) << 14 | (Priority & 0x3) << 12 | (SrcPhyAddr & 0xFFF),
@@ -181,7 +175,7 @@ def PakBus_hdr(DstNodeId, SrcNodeId, HiProtoCode, ExpMoreCode = 0x2, LinkState =
 
 ################################################################################
 #
-# [1] section 1.4 Encoding and Decoding Packets
+# [1] section 1.4 Encoding and DecodiI'mng Packets
 #
 ################################################################################
 
@@ -189,57 +183,65 @@ def PakBus_hdr(DstNodeId, SrcNodeId, HiProtoCode, ExpMoreCode = 0x2, LinkState =
 # Calculate signature for PakBus packets
 #
 def calcSigFor(buff, seed = 0xAAAA):
+    #
+    # buff must be a bytes object
+    #
+    # returns an integer
+    #
     sig = seed
     for x in buff:
-        if isinstance(x, str):
-            x = ord(x)
-        elif isinstance(x, int):
-            x = x
-        else:
-            x = x if isinstance(x, int) else ord(x)
         j = sig
-        sig = (sig <<1) & 0x1FF
+        sig = (sig << 1) & 0x1FF
         if sig >= 0x100: sig += 1
-        sig = ((((sig + (j >>8) + x) & 0xFF) | (j <<8))) & 0xFFFF
+        sig = ((((sig + (j >> 8) + x) & 0xFF) | (j << 8))) & 0xFFFF
     return sig
 
 #
 # Calculate signature nullifier needed to create valid PakBus packets
 #
 def calcSigNullifier(sig):
-    nulb = nullif = ''
-    for i in 1,2:
+    #
+    # sig must be an integer
+    #
+    # returns a bytes object
+    #
+    nulb = b''
+    nullif = b''
+    for i in (1, 2):
         sig = calcSigFor(nulb, sig)
-        sig2 = (sig<<1) & 0x1FF
-        if sig2 >= 0x100: sig2 += 1
-        nulb = chr((0x100 - (sig2 + (sig >>8))) & 0xFF)
+        sig2 = (sig << 1) & 0x1FF
+        if sig2 >= 0x100:
+            sig2 += 1
+        b = (0x100 - (sig2 + (sig >> 8))) & 0xFF
+        nulb = struct.pack('B', b)
         nullif += nulb
-    return nullif.encode('latin-1')
+    return nullif
 
 #
 # Quote PakBus packet
 #
 def quote(pkt):
-    # if isinstance(pkt, str):
-        # pkt = pkt.encode('latin-1')
-    
-    pkt = pkt.replace(b'\xBC', b'\xBC\xDC')  # quote \xBC characters
-    pkt = pkt.replace(b'\xBD', b'\xBC\xDD')  # quote \xBD characters
-    
+    #
+    # pkt must be a bytes object
+    #
+    # returns a bytes object
+    #
+    pkt = pkt.replace(b'\xBC', b'\xBC\xDC')
+    pkt = pkt.replace(b'\xBD', b'\xBC\xDD')
     return pkt
 
 #
 # Unquote PakBus packet
 #
 def unquote(pkt):
-    # if isinstance(pkt, str):
-        # pkt = pkt.encode('latin-1')
-    
-    pkt = pkt.replace(b'\xBC\xDD', b'\xBD')  # unquote \xBD characters
-    pkt = pkt.replace(b'\xBC\xDC', b'\xBC')  # unquote \xBC characters
-    
+    #
+    # pkt must be a bytes object
+    #
+    # returns a bytes object
+    #
+    pkt = pkt.replace(b'\xBC\xDD', b'\xBD')
+    pkt = pkt.replace(b'\xBC\xDC', b'\xBC')
     return pkt
-
 
 ################################################################################
 #
@@ -248,15 +250,14 @@ def unquote(pkt):
 ################################################################################
 
 def link_ring_cmd(DstNodeId, SrcNodeId):
-    # DstNodeId:   Destination node ID (12-bit int)
-    # SrcNodeId:   Source node ID (12-bit int)
-    # IsRouter:    Flag if source node is a router (default: 0)
-    # HopMetric:   Worst case interval to complete transaction (default: 0x02 -> 5 s)
-    # VerifyIntv:  Link verification interval in seconds (default: 30 minutes)
-
-    # def PakBus_hdr(DstNodeId, SrcNodeId, HiProtoCode, ExpMoreCode = 0x2, LinkState = LS_READY, Priority = 0x1, HopCnt = 0x0, DstPhyAddr = None, SrcPhyAddr = None):
-    pkt = PakBus_hdr(DstNodeId, SrcNodeId, 0x0, 0x0, LS_RING, 0) # PakBus Control Packet
-    return pkt
+    #
+    # DstNodeId, SrcNodeId must be integers
+    #
+    # returns a bytes object
+    #
+    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x70, LinkState = LS_RING)
+    
+    return hdr + calcSigNullifier(calcSigFor(hdr))
 
 #
 
@@ -288,13 +289,13 @@ def link_ring_cmd(DstNodeId, SrcNodeId):
 # Create Hello Command packet
 #
 def pkt_hello_cmd(DstNodeId, SrcNodeId, IsRouter = 0x00, HopMetric = 0x02, VerifyIntv = 1800):
-    # DstNodeId:   Destination node ID (12-bit int)
-    # SrcNodeId:   Source node ID (12-bit int)
-    # IsRouter:    Flag if source node is a router (default: 0)
-    # HopMetric:   Worst case interval to complete transaction (default: 0x02 -> 5 s)
-    # VerifyIntv:  Link verification interval in seconds (default: 30 minutes)
-
-    TranNbr = newTranNbr()  # Generate new transaction number
+    #
+    # DstNodeId, SrcNodeId must be integers
+    # IsRouter, HopMetric, VerifyIntv must be integers
+    #
+    # returns a tuple of (bytes object, transaction number)
+    #
+    TranNbr = newTranNbr()
     hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x0, 0x1, 0x9) # PakBus Control Packet
     msg = encode_bin(['Byte', 'Byte', 'Byte', 'Byte', 'UInt2'], [0x09, TranNbr, IsRouter, HopMetric, VerifyIntv])
     pkt = hdr + msg
@@ -304,24 +305,22 @@ def pkt_hello_cmd(DstNodeId, SrcNodeId, IsRouter = 0x00, HopMetric = 0x02, Verif
 # Create Hello Response packet
 #
 def pkt_hello_response(DstNodeId, SrcNodeId, TranNbr, IsRouter = 0x00, HopMetric = 0x02, VerifyIntv = 1800):
-    # DstNodeId:    Destination node ID (12-bit int)
-    # SrcNodeId:    Source node ID (12-bit int)
-    # TranNbr:      Transaction number from received hello command packet
-    # IsRouter:     Flag if source node is a router (default: 0)
-    # HopMetric:    Worst case interval to complete transaction (default: 0x02 -> 5 s)
-    # VerifyIntv:   Link verification interval in seconds (default: 30 minutes)
+    #
+    # DstNodeId, SrcNodeId, TranNbr must be integers
+    # IsRouter, HopMetric, VerifyIntv must be integers
+    #
+    # returns a bytes object
+    #
+    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x01)
+    msg = struct.pack('B', 0x89) + struct.pack('B', TranNbr) + struct.pack('>H', VerifyIntv) + struct.pack('B', IsRouter) + struct.pack('B', HopMetric)
 
-    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x0) # PakBus Control Packet
-    msg = encode_bin(['Byte', 'Byte', 'Byte', 'Byte', 'UInt2'], [0x89, TranNbr, IsRouter, HopMetric, VerifyIntv])
-    pkt = hdr + msg
-    return pkt
+    return hdr + msg + calcSigNullifier(calcSigFor(hdr + msg))
 
 #
 # Decode Hello Command/Response packet
 #
 def msg_hello(msg):
     # msg: decoded default message - must contain msg['raw']
-
     [msg['IsRouter'], msg['HopMetric'], msg['VerifyIntv']], size = decode_bin(['Byte', 'Byte', 'UInt2'], msg['raw'][2:])
     return msg
 
@@ -347,13 +346,15 @@ def msg_hello(msg):
 # Create Bye Command packet
 #
 def pkt_bye_cmd(DstNodeId, SrcNodeId):
-    # DstNodeId:   Destination node ID (12-bit int)
-    # SrcNodeId:   Source node ID (12-bit int)
+    #
+    # DstNodeId, SrcNodeId must be integers
+    #
+    # returns a bytes object
+    #
+    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x01)
+    msg = struct.pack('B', 0x0D)
 
-    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x0, 0x0, 0xB) # PakBus Control Packet
-    msg = encode_bin(['Byte', 'Byte'], [0x0d, 0x0])
-    pkt = hdr + msg
-    return pkt
+    return hdr + msg + calcSigNullifier(calcSigFor(hdr + msg))
 
 
 ################################################################################
@@ -377,56 +378,93 @@ def pkt_bye_cmd(DstNodeId, SrcNodeId):
 # Create DevConfig Get Settings Command packet
 #
 def pkt_devconfig_get_settings_cmd(DstNodeId, SrcNodeId, BeginSettingId = None, EndSettingId = None, SecurityCode = 0x0000):
-    # DstNodeId:        Destination node ID (12-bit int)
-    # SrcNodeId:        Source node ID (12-bit int)
-    # BeginSettingId:   First setting for the datalogger to include in response
-    # EndSettingId:     Last setting for the datalogger to include in response
-    # SecurityCode:     16-bit security code (optional)
+    #
+    # DstNodeId, SrcNodeId must be integers
+    # BeginSettingId, EndSettingId, SecurityCode must be integers
+    #
+    # returns a bytes object
+    #
+    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x01)
+    msg = struct.pack('B', 0x0F) + struct.pack('B', newTranNbr()) + struct.pack('>H', SecurityCode)
+    
+    if BeginSettingId is not None:
+        msg += struct.pack('>H', BeginSettingId)
+    if EndSettingId is not None:
+        msg += struct.pack('>H', EndSettingId)
 
-    TranNbr = newTranNbr()  # Generate new transaction number
-    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x0) # PakBus Control Packet
-    msg = encode_bin(['Byte', 'Byte'], [0x0f, TranNbr])
-    if not BeginSettingId is None:
-        msg += encode_bin(['UInt2'], [BeginSettingId])
-        if not EndSettingId is None:
-            msg += encode_bin(['UInt2'], [EndSettingId])
-    pkt = hdr + msg
-    return pkt, TranNbr
+    return hdr + msg + calcSigNullifier(calcSigFor(hdr + msg))
 
 #
 # Decode DevConfig Get Settings Response packet
 #
 def msg_devconfig_get_settings_response(msg):
     # msg: decoded default message - must contain msg['raw']
-
     offset = 2
     [msg['Outcome']], size = decode_bin(['Byte'], msg['raw'][offset:])
     offset += size
-
     # Generate dictionary of all settings
     msg['Settings'] = []
-    if msg['Outcome'] == 0x01:
-        [msg['DeviceType'], msg['MajorVersion'], msg['MinorVersion'], msg['MoreSettings']], size = decode_bin(['UInt2', 'Byte', 'Byte', 'Byte'], msg['raw'][offset:])
-        offset += size
+    return msg
 
-        while offset < len(msg['raw']):
-            # Get setting ID
-            [SettingId], size = decode_bin(['UInt2'], msg['raw'][offset:])
-            offset += size
+#
+# Decode DevConfig Set Settings Response packet
+#
+def msg_devconfig_set_settings_response(msg):
+    # msg: decoded default message - must contain msg['raw']
+    offset = 2
+    [msg['Outcome']], size = decode_bin(['Byte'], msg['raw'][offset:])
+    offset += size
+    msg['SettingStatus'] = []
+    return msg
 
-            # Get flags and length
-            [bit16], size = decode_bin(['UInt2'], msg['raw'][offset:])
-            LargeValue = (bit16 & 0x8000) >> 15
-            ReadOnly = (bit16 & 0x4000) >> 14
-            SettingLen = bit16 & 0x3FFF
-            offset += size
+#
+# Decode DevConfig Control Response packet
+#
+def msg_devconfig_control_response(msg):
+    # msg: decoded default message - must contain msg['raw']
+    offset = 2
+    [msg['Outcome']], size = decode_bin(['Byte'], msg['raw'][offset:])
+    return msg
 
-            # Get value
-            SettingValue = msg['raw'][offset:offset+SettingLen]
-            offset += SettingLen
+#
+# Decode Clock Response packet
+#
+def msg_clock_response(msg):
+    # msg: decoded default message - must contain msg['raw']
+    [msg['RespCode'], msg['Time']], size = decode_bin(['Byte', 'NSec'], msg['raw'][2:])
+    return msg
 
-            msg['Settings'].append({'SettingId': SettingId, 'SettingValue': SettingValue, 'LargeValue': LargeValue, 'ReadOnly': ReadOnly })
+#
+# Decode Get Programming Statistics Response packet
+#
+def msg_getprogstat_response(msg):
+    # msg: decoded default message - must contain msg['raw']
+    [msg['RespCode']], size = decode_bin(['Byte'], msg['raw'][2:])
+    return msg
 
+#
+# Decode File Download Response packet
+#
+def msg_filedownload_response(msg):
+    # msg: decoded default message - must contain msg['raw']
+    [msg['RespCode'], msg['FileOffset']], size = decode_bin(['Byte', 'UInt4'], msg['raw'][2:])
+    return msg
+
+#
+# Decode File Upload Response packet
+#
+def msg_fileupload_response(msg):
+    # msg: decoded default message - must contain msg['raw']
+    [msg['RespCode'], msg['FileOffset']], size = decode_bin(['Byte', 'UInt4'], msg['raw'][2:7])
+    msg['FileData'] = msg['raw'][7:] # return raw file data for later parsing
+    return msg
+
+#
+# Decode File Control Response packet
+#
+def msg_filecontrol_response(msg):
+    # msg: decoded default message - must contain msg['raw']
+    [msg['RespCode'], msg['HoldOff']], size = decode_bin(['Byte', 'UInt2'], msg['raw'][2:])
     return msg
 
 
@@ -440,44 +478,39 @@ def msg_devconfig_get_settings_response(msg):
 # Create DevConfig Set Settings Command packet
 #
 def pkt_devconfig_set_settings_cmd(DstNodeId, SrcNodeId, Settings = [], SecurityCode = 0x0000):
-    # DstNodeId:        Destination node ID (12-bit int)
-    # SrcNodeId:        Source node ID (12-bit int)
-    # Settings:         List of dictionarys with SettingId and SettingValue fields for each setting (like 'Settings' returned by msg_devconfig_get_settings_response()
-    # SecurityCode:     16-bit security code (optional)
+    #
+    # DstNodeId, SrcNodeId, SecurityCode must be integers
+    # Settings must be a list of dictionaries
+    #
+    # returns a bytes object
+    #
+    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x01)
+    msg = struct.pack('B', 0x10) + struct.pack('B', newTranNbr()) + struct.pack('>H', SecurityCode)
+    
+    for s in Settings:
+        msg += struct.pack('>H', s['Id'])
+        msg += struct.pack('>H', len(s['Value']))
+        msg += s['Value']
 
-    TranNbr = newTranNbr()  # Generate new transaction number
-    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x0) # PakBus Control Packet
-    msg = encode_bin(['Byte', 'Byte', 'UInt2'], [0x10, TranNbr, SecurityCode])
-
-    # Encode setting Id, length and value
-    for setting in Settings:
-        if 'SettingId' in setting and 'SettingValue' in setting:
-            msg += encode_bin(['UInt2', 'UInt2', 'ASCII'], [setting['SettingId'], len(setting['SettingValue']), setting['SettingValue']])
-
-    pkt = hdr + msg
-    return pkt, TranNbr
+    return hdr + msg + calcSigNullifier(calcSigFor(hdr + msg))
 
 #
 # Decode DevConfig Set Settings Response packet
 #
 def msg_devconfig_set_settings_response(msg):
-    # msg: decoded default message - must contain msg['raw']
-
-    offset = 2
-    [msg['Outcome']], size = decode_bin(['Byte'], msg['raw'][offset:])
-    offset += size
-
-    # Generate dictionary of all settings
-    msg['SettingStatus'] = []
-    if msg['Outcome'] == 0x01:
-        while offset < len(msg['raw']):
-            # Get setting ID
-            [SettingId, SettingOutcome], size = decode_bin(['UInt2', 'Byte'], msg['raw'][offset:])
-            offset += size
-
-            msg['SettingStatus'].append({'SettingId': SettingId, 'SettingOutcome': SettingOutcome})
-
-    return msg
+    #
+    # msg must be a bytes object
+    #
+    # returns a dictionary
+    #
+    result = { 'TranNbr': msg[1], 'RespCode': msg[2], 'Settings': [] }
+    
+    i = 3
+    while i < len(msg):
+        result['Settings'].append({ 'Id': struct.unpack('>H', msg[i:i+2])[0], 'Ack': msg[i+2] })
+        i += 3
+        
+    return result
 
 
 ################################################################################
@@ -512,26 +545,26 @@ def msg_devconfig_set_settings_response(msg):
 # Create DevConfig Control Command packet
 #
 def pkt_devconfig_control_cmd(DstNodeId, SrcNodeId, Action = 0x04, SecurityCode = 0x0000):
-    # DstNodeId:        Destination node ID (12-bit int)
-    # SrcNodeId:        Source node ID (12-bit int)
-    # Action:           The action that should be taken by the data logger (default: refresh session timer)
-    # SecurityCode:     16-bit security code (optional)
+    #
+    # DstNodeId, SrcNodeId, Action, SecurityCode must be integers
+    #
+    # returns a bytes object
+    #
+    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x01)
+    msg = struct.pack('B', 0x13) + struct.pack('B', newTranNbr()) + struct.pack('>H', SecurityCode) + struct.pack('B', Action)
 
-    TranNbr = newTranNbr()  # Generate new transaction number
-    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x0) # PakBus Control Packet
-    msg = encode_bin(['Byte', 'Byte', 'UInt2', 'Byte'], [0x13, TranNbr, SecurityCode, Action])
-    pkt = hdr + msg
-    return pkt, TranNbr
+    return hdr + msg + calcSigNullifier(calcSigFor(hdr + msg))
 
 #
 # Decode DevConfig Control Response packet
 #
 def msg_devconfig_control_response(msg):
-    # msg: decoded default message - must contain msg['raw']
-
-    offset = 2
-    [msg['Outcome']], size = decode_bin(['Byte'], msg['raw'][offset:])
-    return msg
+    #
+    # msg must be a bytes object
+    #
+    # returns a dictionary
+    #
+    return { 'TranNbr': msg[1], 'RespCode': msg[2] }
 
 
 ################################################################################
@@ -573,24 +606,27 @@ def msg_pleasewait(msg):
 # Create Clock Command packet
 #
 def pkt_clock_cmd(DstNodeId, SrcNodeId, Adjustment = (0, 0), SecurityCode = 0x0000):
-    # DstNodeId:    Destination node ID (12-bit int)
-    # SrcNodeId:    Source node ID (12-bit int)
-    # Adjustment:   Clock adjustment (seconds, nanoseconds)
-    # SecurityCode: 16-bit security code (optional)
+    #
+    # DstNodeId, SrcNodeId, SecurityCode must be integers
+    # Adjustment must be a tuple of two integers
+    #
+    # returns a bytes object
+    #
+    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x02)
+    msg = struct.pack('B', 0x17) + struct.pack('B', newTranNbr()) + struct.pack('>H', SecurityCode) + struct.pack('>l', Adjustment[0]) + struct.pack('>L', Adjustment[1])
 
-    TranNbr = newTranNbr()  # Generate new transaction number
-    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x1) # BMP5 Application Packet
-    msg = encode_bin(['Byte', 'Byte', 'UInt2', 'NSec'], [0x17, TranNbr, SecurityCode, Adjustment])
-    pkt = hdr + msg
-    return pkt, TranNbr
+    return hdr + msg + calcSigNullifier(calcSigFor(hdr + msg))
 
 #
 # Decode Clock Response packet
 #
 def msg_clock_response(msg):
-    # msg: decoded default message - must contain msg['raw']
-    [msg['RespCode'], msg['Time']], size = decode_bin(['Byte', 'NSec'], msg['raw'][2:])
-    return msg
+    #
+    # msg must be a bytes object
+    #
+    # returns a dictionary
+    #
+    return { 'TranNbr': msg[1], 'RespCode': msg[2] }
 
 
 ################################################################################
@@ -603,32 +639,31 @@ def msg_clock_response(msg):
 # Create File Download Command packet
 #
 def pkt_filedownload_cmd(DstNodeId, SrcNodeId, FileName, FileData, SecurityCode = 0x0000, FileOffset = 0x00000000, TranNbr = None, CloseFlag = 0x01, Attribute = 0x00):
-    # DstNodeId:    Destination node ID (12-bit int)
-    # SrcNodeId:    Source node ID (12-bit int)
-    # FileName:     File name as string
-    # FileData:     Binary string containing file data
-    # SecurityCode: 16-bit security code (optional)
-    # FileOffset:   Byte offset into the file or fragment
-    # TranNbr:      Transaction number for continuig partial reads (required by OS>=17!)
-    # CloseFlag:    Flag if file should be closed after this transaction
-    # Attribute:    Reserved byte = 0x00
-
-    # Generate new transaction number if none was supplied
-    if not TranNbr:
+    #
+    # DstNodeId, SrcNodeId, SecurityCode, FileOffset, TranNbr, CloseFlag, Attribute must be integers
+    # FileName must be a string
+    # FileData must be a bytes object
+    #
+    # returns a bytes object
+    #
+    if TranNbr is None:
         TranNbr = newTranNbr()
-    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x1) # BMP5 Application Packet
-    msg = encode_bin(['Byte', 'Byte', 'UInt2', 'ASCIIZ', 'Byte', 'Byte', 'UInt4', 'ASCII'], [0x1c, TranNbr, SecurityCode, FileName, Attribute, CloseFlag, FileOffset, FileData])
-    pkt = hdr + msg
-    return pkt, TranNbr
+    
+    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x02)
+    msg = struct.pack('B', 0x1C) + struct.pack('B', TranNbr) + struct.pack('>H', SecurityCode) + struct.pack('B', len(FileName)) + FileName.encode('ascii') + struct.pack('>L', FileOffset) + struct.pack('B', CloseFlag) + struct.pack('B', Attribute) + FileData
+    
+    return hdr + msg + calcSigNullifier(calcSigFor(hdr + msg))
 
 #
 # Decode File Download Response packet
 #
 def msg_filedownload_response(msg):
-    # msg: decoded default message - must contain msg['raw']
-
-    [msg['RespCode'], msg['FileOffset']], size = decode_bin(['Byte', 'UInt4'], msg['raw'][2:])
-    return msg
+    #
+    # msg must be a bytes object
+    #
+    # returns a dictionary
+    #
+    return { 'TranNbr': msg[1], 'RespCode': msg[2] }
 
 
 ################################################################################
@@ -641,32 +676,30 @@ def msg_filedownload_response(msg):
 # Create File Upload Command packet
 #
 def pkt_fileupload_cmd(DstNodeId, SrcNodeId, FileName, SecurityCode = 0x0000, FileOffset = 0x00000000, TranNbr = None, CloseFlag = 0x01, Swath = 0x0200):
-    # DstNodeId:    Destination node ID (12-bit int)
-    # SrcNodeId:    Source node ID (12-bit int)
-    # FileName:     File name as string
-    # SecurityCode: 16-bit security code (optional)
-    # FileOffset:   Byte offset into the file or fragment
-    # TranNbr:      Transaction number for continuig partial reads (required by OS>=17!)
-    # CloseFlag:    Flag if file should be closed after this transaction
-    # Swath:        Number of bytes to read
-
-    # Generate new transaction number if none was supplied
-    if not TranNbr:
+    #
+    # DstNodeId, SrcNodeId, SecurityCode, FileOffset, TranNbr, CloseFlag, Swath must be integers
+    # FileName must be a string
+    #
+    # returns a bytes object
+    #
+    if TranNbr is None:
         TranNbr = newTranNbr()
-    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x1) # BMP5 Application Packet
-    msg = encode_bin(['Byte', 'Byte', 'UInt2', 'ASCIIZ', 'Byte', 'UInt4', 'UInt2'], [0x1d, TranNbr, SecurityCode, FileName, CloseFlag, FileOffset, Swath])
-    pkt = hdr + msg
-    return pkt, TranNbr
+    
+    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x02)
+    msg = struct.pack('B', 0x1D) + struct.pack('B', TranNbr) + struct.pack('>H', SecurityCode) + struct.pack('B', len(FileName)) + FileName.encode('ascii') + struct.pack('>L', FileOffset) + struct.pack('B', CloseFlag) + struct.pack('>H', Swath)
+    
+    return hdr + msg + calcSigNullifier(calcSigFor(hdr + msg))
 
 #
 # Decode File Upload Response packet
 #
 def msg_fileupload_response(msg):
-    # msg: decoded default message - must contain msg['raw']
-
-    [msg['RespCode'], msg['FileOffset']], size = decode_bin(['Byte', 'UInt4'], msg['raw'][2:7])
-    msg['FileData'] = msg['raw'][7:] # return raw file data for later parsing
-    return msg
+    #
+    # msg must be a bytes object
+    #
+    # returns a dictionary
+    #
+    return { 'TranNbr': msg[1], 'RespCode': msg[2], 'FileData': msg[3:] }
 
 
 ################################################################################
@@ -679,39 +712,29 @@ def msg_fileupload_response(msg):
 # Parse File Directory Format
 #
 def parse_filedir(raw):
-    # raw:      Raw coded data string containing directory output
-
-    offset = 0  # offset into raw buffer
-    fd = { 'files': [] }     # initialize file directory structure
-    [fd['DirVersion']], size = decode_bin(['Byte'], raw[offset:])
-    offset += size
-
-    # Extract file entries
-    while True:
-        file = {} # file description
-        [filename], size = decode_bin(['ASCIIZ'], raw[offset:])
-        offset += size
-
-        # end loop when file attribute list terminator reached
-        if filename == '': break
-
-        file['FileName'] = filename
-        [file['FileSize'], file['LastUpdate']], size = decode_bin(['UInt4', 'ASCIIZ'], raw[offset:])
-        offset += size
-
-        # Read file attribute list
-        file['Attribute'] = [] # initialize file attribute list (up to 12)
-        for i in range(12):
-            [attribute], size = decode_bin(['Byte'], raw[offset:])
-            offset += size
-            if attribute:
-                file['Attribute'].append(attribute) # append file attribute to list
-            else:
-                break # End of attribute list reached
-
-        fd['files'].append(file) # add file entry to list
-
-    return fd
+    #
+    # raw must be a bytes object
+    #
+    # returns a list of dictionaries
+    #
+    files = []
+    
+    i = 0
+    while i < len(raw):
+        file = {}
+        name_len = raw[i]
+        i += 1
+        file['Name'] = raw[i:i+name_len].decode('ascii')
+        i += name_len
+        file['Size'] = struct.unpack('>L', raw[i:i+4])[0]
+        i += 4
+        file['Timestamp'] = struct.unpack('>L', raw[i:i+4])[0]
+        i += 4
+        file['Attribute'] = raw[i]
+        i += 1
+        files.append(file)
+        
+    return files
 
 
 ################################################################################
@@ -724,29 +747,30 @@ def parse_filedir(raw):
 # Create File Control Transaction packet
 #
 def pkt_filecontrol_cmd(DstNodeId, SrcNodeId, FileName, FileCmd, SecurityCode = 0x0000, TranNbr = None):
-    # DstNodeId:    Destination node ID (12-bit int)
-    # SrcNodeId:    Source node ID (12-bit int)
-    # FileName:     File name as string
-    # FileCmd:      Code that specifies the command to perform with the file
-    # SecurityCode: 16-bit security code (optional)
-    # TranNbr:      Transaction number for continuig partial reads (required by OS>=17!)
-
-    # Generate new transaction number if none was supplied
-    if not TranNbr:
+    #
+    # DstNodeId, SrcNodeId, FileCmd, SecurityCode, TranNbr must be integers
+    # FileName must be a string
+    #
+    # returns a bytes object
+    #
+    if TranNbr is None:
         TranNbr = newTranNbr()
-    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x1) # BMP5 Application Packet
-    msg = encode_bin(['Byte', 'Byte', 'UInt2', 'ASCIIZ', 'Byte'], [0x1e, TranNbr, SecurityCode, FileName, FileCmd])
-    pkt = hdr + msg
-    return pkt, TranNbr
+    
+    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x02)
+    msg = struct.pack('B', 0x1E) + struct.pack('B', TranNbr) + struct.pack('>H', SecurityCode) + struct.pack('B', FileCmd) + struct.pack('B', len(FileName)) + FileName.encode('ascii')
+    
+    return hdr + msg + calcSigNullifier(calcSigFor(hdr + msg))
 
 #
 # Decode File Control Transaction Response packet
 #
 def msg_filecontrol_response(msg):
-    # msg: decoded default message - must contain msg['raw']
-
-    [msg['RespCode'], msg['HoldOff']], size = decode_bin(['Byte', 'UInt2'], msg['raw'][2:])
-    return msg
+    #
+    # msg must be a bytes object
+    #
+    # returns a dictionary
+    #
+    return { 'TranNbr': msg[1], 'RespCode': msg[2] }
 
 
 ################################################################################
@@ -759,33 +783,29 @@ def msg_filecontrol_response(msg):
 # Create Get Programming Statistics Transaction packet
 #
 def pkt_getprogstat_cmd(DstNodeId, SrcNodeId, SecurityCode = 0x0000, TranNbr = None):
-    # DstNodeId:    Destination node ID (12-bit int)
-    # SrcNodeId:    Source node ID (12-bit int)
-    # SecurityCode: 16-bit security code (optional)
-    # TranNbr:      Transaction number for continuig partial reads (required by OS>=17!)
-
-    # Generate new transaction number if none was supplied
-    if not TranNbr:
+    #
+    # DstNodeId, SrcNodeId, SecurityCode, TranNbr must be integers
+    #
+    # returns a bytes object
+    #
+    if TranNbr is None:
         TranNbr = newTranNbr()
-    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x1) # BMP5 Application Packet
-    msg = encode_bin(['Byte', 'Byte', 'UInt2'], [0x18, TranNbr, SecurityCode])
-    pkt = hdr + msg
-    return pkt, TranNbr
+    
+    hdr = PakBus_hdr(DstNodeId, SrcNodeId, 0x02)
+    msg = struct.pack('B', 0x18) + struct.pack('B', TranNbr) + struct.pack('>H', SecurityCode)
+    
+    return hdr + msg + calcSigNullifier(calcSigFor(hdr + msg))
 
 #
 # Decode Get Programming Statistics Transaction Response packet
 #
 def msg_getprogstat_response(msg):
-    # msg: decoded default message - must contain msg['raw']
-
-    # Get response code
-    [msg['RespCode']], size = decode_bin(['Byte'], msg['raw'][2:])
-
-    # Get report data if RespCode == 0
-    if msg['RespCode'] == 0:
-        [msg['OSVer'], msg['OSSig'], msg['SerialNbr'], msg['PowUpProg'], msg['CompState'], msg['ProgName'], msg['ProgSig'], msg['CompTime'], msg['CompResult']], size = decode_bin(['ASCIIZ', 'UInt2', 'ASCIIZ', 'ASCIIZ', 'Byte', 'ASCIIZ', 'UInt2', 'NSec', 'ASCIIZ'], msg['raw'][3:])
-
-    return msg
+    #
+    # msg must be a bytes object
+    #
+    # returns a dictionary
+    #
+    return { 'TranNbr': msg[1], 'RespCode': msg[2], 'CompileState': msg[3], 'CompileFile': msg[4:4+16].split(b'\0', 1)[0].decode('ascii'), 'Sig': struct.unpack('>L', msg[20:24])[0], 'Owner': msg[24:24+20].split(b'\0', 1)[0].decode('ascii') }
 
 
 ################################################################################
@@ -927,16 +947,19 @@ def pkt_collectdata_cmd(DstNodeId, SrcNodeId, TableNbr, TableDefSig, FieldNbr = 
 #
 # Decode Collect Data Response body
 #
-def msg_collectdata_response(msg):
-    # msg: decoded default message - must contain msg['raw']
+def msg_collectdata_response(msg_bytes):
+    # msg_bytes: raw bytes of the message payload
 
     offset = 2
-    [msg['RespCode']], size = decode_bin(['Byte'], msg['raw'][offset:])
+    resp_code, size = decode_bin(['Byte'], msg_bytes[offset:])
     offset += size
 
-    msg['RecData'] = msg['raw'][offset:] # return raw record data for later parsing
+    rec_data = msg_bytes[offset:] # return raw record data for later parsing
 
-    return msg
+    return {
+        'RespCode': resp_code,
+        'RecData': rec_data
+    }
 
 #
 # Parse data returned by msg_collectdata_response(msg)
@@ -1013,7 +1036,7 @@ def parse_collectdata(raw, tabledef, FieldNbr = []):
                     fieldname = tabledef[frag['TableNbr'] - 1]['Fields'][field - 1]['FieldName']
                     fieldtype = tabledef[frag['TableNbr'] - 1]['Fields'][field - 1]['FieldType']
                     dimension = tabledef[frag['TableNbr'] - 1]['Fields'][field - 1]['Dimension']
-                    # print "parsing %s: %s (%s)" % (field, fieldname, fieldtype) 
+                    # print("parsing %s: %s (%s)" % (field, fieldname, fieldtype)) 
                     if fieldtype == 'ASCII':
                         record['Fields'][fieldname], size = decode_bin([fieldtype], raw[offset:], dimension)
                     else:
@@ -1021,36 +1044,8 @@ def parse_collectdata(raw, tabledef, FieldNbr = []):
                     offset += size
                 print("parsed fields")
                 frag['RecFrag'].append(record)
-
         recdata.append(frag)
-
-    # Get flag if more records exist
-    [MoreRecsExist], size = decode_bin(['Bool'], raw[offset:])
-
-    return recdata, MoreRecsExist
-
-
-################################################################################
-#
-# [1] section 2.3.4.4 One-Way Data Transaction (MsgType 0x20 & 0x14)
-#
-################################################################################
-
-#
-# still missing ...
-#
-
-
-################################################################################
-#
-# [1] section 2.3.4.5 Table Control Transaction (MsgType 0x19 & 0x99)
-#
-################################################################################
-
-#
-# still missing ...
-#
-
+    return recdata
 
 ################################################################################
 #
@@ -1081,7 +1076,7 @@ def pkt_getvalues_cmd(DstNodeId, SrcNodeId, TableName, Type, FieldName, Swath = 
 #
 def msg_getvalues_response(msg):
     # msg: decoded default message - must contain msg['raw']
-    [msg['RespCode']], size = decode_bin(['Byte'], msg['raw'][2])
+    [msg['RespCode']], size = decode_bin(['Byte'], msg['raw'][2:3])
     msg['Values'] = msg['raw'][3:] # return raw coded values for later parsing
     return msg
 
@@ -1094,14 +1089,6 @@ def parse_values(raw, Type, Swath = 1):
     # Swath:    Number of columns to retrieve from an indexed field
     values, size = decode_bin(Swath * [Type], raw)
     return values
-
-#
-# Set Values Command Body (MsgType 0x1b)
-#
-
-#
-# still missing ...
-#
 
 
 ################################################################################
@@ -1135,7 +1122,7 @@ def decode_pkt(pkt):
 
         # decode default message fields: raw message, message type and transaction number
         msg['raw'] = pkt[8:]
-        [msg['MsgType'], msg['TranNbr']], size = decode_bin(('Byte', 'Byte'), msg['raw'][:2])
+        [msg['MsgType'], msg['TranNbr']], size = decode_bin(['Byte', 'Byte'], msg['raw'][:2])
     except:
         pass
 
@@ -1158,189 +1145,10 @@ def decode_pkt(pkt):
             (1, 0x9e): msg_filecontrol_response,
             (1, 0xa1): msg_pleasewait,
         }[(hdr['HiProtoCode'], msg['MsgType'])](msg)
-    except KeyError:
+    except (KeyError, IndexError):
         pass # if not listed above
 
     return hdr, msg
-
-#
-# Decode binary data according to data type
-#
-def decode_bin(Types, buff, length = 1):
-    # Types:   List of strings containing data types for fields
-    # buff:    Buffer containing binary data
-    # length:  length of ASCII string (optional)
-
-    offset = 0 # offset into buffer
-    values = [] # list of values to return
-    for Type in Types:
-        # get default format and size for Type
-        fmt = datatype[Type]['fmt']
-        size = datatype[Type]['size']
-        # print "decoding, buf size %d, offset %d" % (len(buff), offset)
-        if size > len(buff) - offset:
-            print("**** decode_bin: no more data! ***")
-            return [], 0
-
-        if Type == 'ASCIIZ': # special handling: nul-terminated string
-            nul = buff.find('\0', offset) # find first '\0' after offset
-            value = buff[offset:nul] # return string without trailing '\0'
-            size = len(value) + 1
-        elif Type == 'ASCII': # special handling: fixed-length string
-            size = length
-            value = buff[offset:offset + size] # return fixed-length string
-        elif Type == 'FP2': # special handling: FP2 floating point number
-            fp2 = struct.unpack(fmt, buff[offset:offset+size])
-            mant = fp2[0] & 0x1FFF    # mantissa is in bits 1-13
-            exp  = fp2[0] >> 13 & 0x3 # exponent is in bits 14-15
-            sign = fp2[0] >> 15       # sign is in bit 16
-            value = ((-1)**sign * float(mant) / 10**exp, )
-        else:                # default decoding scheme
-            value = struct.unpack(fmt, buff[offset:offset+size])
-
-        # un-tuple single values
-        if len(value) == 1:
-            value = value[0]
-
-        values.append(value)
-        offset += size
-
-    # Return decoded values and current offset into buffer (size)
-    return values, offset
-
-
-#
-# Encode binary data according to data type
-#
-def encode_bin(Types, Values):
-    # Types:   List of strings containing data types for fields
-    # Values:  List of values (must have same number of elements as Types)
-
-    buff = b'' # buffer for binary data
-    for i in range(len(Types)):
-        Type = Types[i]
-        fmt = datatype[Type]['fmt'] # get default format for Type
-        value = Values[i]
-
-        if Type == 'ASCIIZ':   # special handling: nul-terminated string
-            value += '\0' # Add nul to end of string
-            enc = struct.pack('%d%s' % (len(value), fmt), value)
-        elif Type == 'ASCII':   # special handling: fixed-length string
-            enc = struct.pack('%d%s' % (len(value), fmt), value)
-        elif Type == 'NSec':   # special handling: NSec time
-            enc = struct.pack(fmt, value[0], value[1])
-        else:                  # default encoding scheme
-            enc = struct.pack(fmt, value)
-
-        buff += enc
-    return buff
-
-
-################################################################################
-#
-# Time and clock functions
-#
-################################################################################
-
-# base of the epoch for NSec values (1990-01-01 00:00:00)
-import calendar
-nsec_base = calendar.timegm((1990, 1, 1, 0, 0, 0))
-
-# length in seconds of one NSec tick (second integer value of an NSec value)
-# Note: this should normally be 1E-9 (nanoseconds). However, for several OS versions < 17, this is
-# actually 1e-6 for reading (not setting!) the clock
-nsec_tick = 1E-9
-
-#
-# Convert nsec value to timestamp
-#
-def nsec_to_time(nsec, epoch = nsec_base, tick = nsec_tick):
-    # nsec:  NSec value
-
-    # Calculate timestamp with fractional seconds
-    timestamp = epoch + nsec[0] + nsec[1] * tick
-    return timestamp
-
-
-#
-# Convert timestamp to nsec value
-#
-def time_to_nsec(timestamp, epoch = nsec_base, tick = nsec_tick):
-    # timestamp: timestamp with fractional seconds
-    # epoch: start of epoch for absolute time calculations (default: nsec_base)
-    #        set to zero for time differences
-
-    # separate fractional and integer part of timestamp
-    import math
-    [fp, ip] = math.modf(timestamp)
-
-    # Calculate two integer values for NSec
-    nsec = (int(ip - epoch), int(fp / tick))
-    return nsec
-
-
-#
-# Synchronize data logger clock with local clock
-#
-def clock_sync(s, DstNodeId, SrcNodeId, SecurityCode = 0x0000, min_adjust = 0.1, max_adjust = 3, offset = 0):
-    # s:            Socket object
-    # DstNodeId:    Destination node ID (12-bit int)
-    # SrcNodeId:    Source node ID (12-bit int)
-    # SecurityCode: 16-bit security code (optional)
-    # min_adjust:   Minimum time difference to adjust clock [seconds]
-    # max_adjust    Maximum adjustment in one step [seconds]
-    # offset:       Offset of data loger clock from UTC [seconds]
-
-    import time
-    td = []
-
-    # Read clock 10 times
-    for j in range(10):
-        pkt, TranNbr = pkt_clock_cmd(DstNodeId, SrcNodeId)
-        t1 = time.time() # timestamp directly before sending clock command
-        send(s, pkt)
-        reftime = time.time() # reference time (UTC)
-        hdr, msg = wait_pkt(s, DstNodeId, SrcNodeId, TranNbr)
-        t2 = time.time() # timestamp directly after receiving clock response
-
-        # Calculate time difference
-        if 'Time' in msg:
-            logtime = nsec_to_time(msg['Time']) - offset # time reported from data logger (UTC)
-            delay = (t2 - t1) / 2 # time estimated delay from communication protocol
-            td.append(logtime - reftime + delay) # build delay-corrected list of time differences
-        else:
-            break
-
-    # Calculate mean time difference tdiff
-    if len(td) > 2:
-        # Drop shortest and longest time difference
-        td.sort()
-        del td[0]
-        del td[-1]
-
-        # Calculate average time difference
-        tdiff = 0
-        for t in td:
-            tdiff += t
-        tdiff /= len(td)
-
-        # Calculate adjustment
-        if abs(tdiff) > min_adjust:
-            # Adjust clock
-            adjust = max(min(-tdiff, max_adjust), -max_adjust)
-            pkt, TranNbr = pkt_clock_cmd(DstNodeId, SrcNodeId, time_to_nsec(adjust, epoch = 0))
-            send(s, pkt)
-            hdr, msg = wait_pkt(s, DstNodeId, SrcNodeId, TranNbr)
-        else:
-            adjust = 0
-
-    # could not calculate tdiff
-    else:
-        tdiff = None
-        adjust = 0
-
-    # return time difference (delay- and offset-corrected) and last adjustment
-    return tdiff, adjust
 
 
 ################################################################################
@@ -1359,135 +1167,135 @@ def wait_pkt(s, SrcNodeId, DstNodeId, TranNbr, timeout = 1):
     # TranNbr:      expected transaction number
     # timeout:      timeout in seconds
 
-    import time, socket
+    import time
     max_time = time.time() + 0.9 * timeout
-
-    # remember current timeout setting
-    # s_timeout = s.gettimeout()
 
     # Loop until timeout is reached
     while time.time() < max_time:
-        # s.settimeout(timeout)
         try:
             rcv = recv(s)
         except socket.timeout:
-            rcv = ''
+            rcv = None
+        
+        if not rcv:
+            continue
+            
         hdr, msg = decode_pkt(rcv)
 
         # ignore packets that are not for us
-        if hdr['DstNodeId'] != DstNodeId or hdr['SrcNodeId'] != SrcNodeId:
+        if hdr.get('DstNodeId') != DstNodeId or hdr.get('SrcNodeId') != SrcNodeId:
             continue
 
         # Respond to incoming hello command packets
-        if msg['MsgType'] == 0x09:
+        if msg.get('MsgType') == 0x09:
             pkt = pkt_hello_response(hdr['SrcNodeId'], hdr['DstNodeId'], msg['TranNbr'])
             send(s, pkt)
             continue
 
         # Handle "please wait" packets
-        if msg['TranNbr'] == TranNbr and msg['MsgType'] == 0xa1:
-            timeout = msg['WaitSec']
+        if msg.get('TranNbr') == TranNbr and msg.get('MsgType') == 0xa1:
+            timeout = msg.get('WaitSec', 1)
             max_time += timeout
             continue
 
         # this should be the packet we are waiting for
-        if msg['TranNbr'] == TranNbr:
+        if msg.get('TranNbr') == TranNbr:
             break
 
     else:
         hdr = {}
         msg = {}
 
-    # restore previous timeout setting
-    # s.settimeout(s_timeout)
-
     return hdr, msg
 
+#
+# Encode binary data
+#
+def encode_bin(Types, Values):
+    # Types:   List of strings containing data types for fields
+    # Values:  List of values (must have same number of elements as Types)
+
+    buff = b'' # buffer for binary data
+    for i in range(len(Types)):
+        Type = Types[i]
+        fmt = datatype[Type]['fmt'] # get default format for Type
+        value = Values[i]
+
+        if Type == 'ASCIIZ':   # special handling: nul-terminated string
+            if isinstance(value, str):
+                value = value.encode('ascii')
+            value += b'\0' # Add nul to end of string
+            enc = struct.pack('%d%s' % (len(value), 's'), value)
+        elif Type == 'ASCII':   # special handling: fixed-length string
+            if isinstance(value, str):
+                value = value.encode('ascii')
+            enc = struct.pack('%d%s' % (len(value), 's'), value)
+        elif Type == 'NSec':   # special handling: NSec time
+            enc = struct.pack(fmt, value[0], value[1])
+        else:                  # default encoding scheme
+            enc = struct.pack(fmt, value)
+
+        buff += enc
+    return buff
 
 #
-# Download a complete file
+# Decode binary data
 #
-def filedownload(s, DstNodeId, SrcNodeId, FileName, FileData, SecurityCode = 0x0000, Swath = 0x0200):
-    # s:            Socket object
-    # DstNodeId:    Destination node ID (12-bit int)
-    # SrcNodeId:    Source node ID (12-bit int)
-    # FileName:     File name as string
-    # FileData:     File data as a binary string
-    # SecurityCode: 16-bit security code (optional)
-    # Swath:        Number of bytes transferred in each packet
+def decode_bin(Types, buff, length = 1):
+    # Types:   List of strings containing data types for fields
+    # buff:    Buffer containing binary data
+    # length:  length of ASCII string (optional)
 
-    # Initialize return values
-    RespCode = 0x0e
+    offset = 0 # offset into buffer
+    values = [] # list of values to return
+    for Type in Types:
+        # get default format and size for Type
+        fmt = datatype[Type]['fmt']
+        size = datatype[Type]['size']
+        
+        if size is not None and size > len(buff) - offset:
+            # print("**** decode_bin: no more data! ***")
+            return [], 0
 
-    # Send file download command packets until whole FileData has been transferred
-    FileOffset = 0x00000000
-    TranNbr = None
-    CloseFlag = 0x00
-    while not CloseFlag:
+        if Type == 'ASCIIZ': # special handling: nul-terminated string
+            nul = buff.find(b'\0', offset) # find first '\0' after offset
+            if nul == -1:
+                value = buff[offset:].decode('ascii')
+                size = len(buff) - offset
+            else:
+                value = buff[offset:nul].decode('ascii') # return string without trailing '\0'
+                size = nul - offset + 1
+        elif Type == 'ASCII': # special handling: fixed-length string
+            size = length
+            value = buff[offset:offset + size].decode('ascii') # return fixed-length string
+        elif Type == 'FP2': # special handling: FP2 floating point number
+            fp2 = struct.unpack(fmt, buff[offset:offset+size])
+            mant = fp2[0] & 0x1FFF    # mantissa is in bits 1-13
+            exp  = fp2[0] >> 13 & 0x3 # exponent is in bits 14-15
+            sign = fp2[0] >> 15       # sign is in bit 16
+            value = ((-1)**sign * float(mant) / 10**exp, )
+        else:                # default decoding scheme
+            value = struct.unpack(fmt, buff[offset:offset+size])
 
-        # Check if this is the last packet
-        if FileOffset + Swath >= len(FileData):
-            CloseFlag = 0x01
+        # un-tuple single values
+        if isinstance(value, tuple) and len(value) == 1:
+            value = value[0]
 
-        # Download Swath bytes after FileOffset from FileData
-        pkt, TranNbr = pkt_filedownload_cmd(DstNodeId, SrcNodeId, FileName, FileData[FileOffset:FileOffset+Swath], FileOffset = FileOffset, TranNbr = TranNbr, CloseFlag = CloseFlag)
-        send(s, pkt)
-        hdr, msg = wait_pkt(s, DstNodeId, SrcNodeId, TranNbr)
+        values.append(value)
+        offset += size
 
-        try:
-            RespCode = msg['RespCode']
-            # End loop if response code <> 0
-            if RespCode != 0:
-                break
-            # Append file data
-            FileOffset += Swath
-        except KeyError:
-            break
+    # Return decoded values and current offset into buffer (size)
+    return values, offset
 
-    return RespCode
+def open_serial(device, baud=9600):
+    return serial.Serial(device, baud, timeout=1)
 
+def ping_node(s, DstNodeId, SrcNodeId):
+    pkt, tran_nbr = pkt_hello_cmd(DstNodeId, SrcNodeId)
+    send(s, pkt)
+    response = recv(s)
+    return response
 
-#
-# Upload a complete file
-#
-def fileupload(s, DstNodeId, SrcNodeId, FileName, SecurityCode = 0x0000):
-    # s:            Socket object
-    # DstNodeId:    Destination node ID (12-bit int)
-    # SrcNodeId:    Source node ID (12-bit int)
-    # FileName:     File name as string
-    # SecurityCode: 16-bit security code (optional)
-
-    # Initialize return values
-    RespCode = 0x0e
-    FileData = ''
-
-    # Send file upload command packets until no more data is returned
-    FileOffset = 0x00000000
-    TranNbr = None
-    while True:
-
-        # Upload chunk from file starting at FileOffset
-        pkt, TranNbr = pkt_fileupload_cmd(DstNodeId, SrcNodeId, FileName, FileOffset = FileOffset, TranNbr = TranNbr, CloseFlag = 0x00)
-        send(s, pkt)
-        hdr, msg = wait_pkt(s, DstNodeId, SrcNodeId, TranNbr)
-
-        try:
-            RespCode = msg['RespCode']
-            # End loop if no more data is returned
-            if not msg['FileData']:
-                break
-            # Append file data
-            FileData += msg['FileData']
-            FileOffset += len(msg['FileData'])
-        except KeyError:
-            break
-
-    return FileData, RespCode
-
-
-#
-# Get field value from table
-#
 def getvalues(s, DstNodeId, SrcNodeId, TableName, Type, FieldName, Swath = 1, SecurityCode = 0x0000):
     # s:            Socket object
     # DstNodeId:    Destination node ID (12-bit int)
@@ -1498,154 +1306,20 @@ def getvalues(s, DstNodeId, SrcNodeId, TableName, Type, FieldName, Swath = 1, Se
     # Swath:        Number of columns to retrieve from an indexed field
     # SecurityCode: 16-bit security code (optional)
 
-    # Send Get Values Command and wait for repsonse
+    # Send Get Values Command and wait for response
     try:
         pkt, TranNbr = pkt_getvalues_cmd(DstNodeId, SrcNodeId, TableName, Type, FieldName, Swath, SecurityCode)
         send(s, pkt)
         hdr, msg = wait_pkt(s, DstNodeId, SrcNodeId, TranNbr)
-        values = msg_getvalues_response(msg)['Values']
-        parse = parse_values(values, Type)
-    except:
-        parse = [ None ]
+        
+        if msg.get('RespCode') == 0:
+            values = msg.get('Values', b'')
+            parse = parse_values(values, Type, Swath)
+        else:
+            parse = [None]
+    except Exception as e:
+        print(f"Error in getvalues: {e}")
+        parse = [None]
 
     # Return list with retrieved values
     return parse
-
-
-#
-# Collect data
-#
-def collect_data(s, DstNodeId, SrcNodeId, TableDef, TableName, FieldNames = [], CollectMode = 0x05, P1 = 1, P2 = 0, SecurityCode = 0x0000):
-    # s:            Socket object
-    # DstNodeId:    Destination node ID (12-bit int)
-    # SrcNodeId:    Source node ID (12-bit int)
-    # TableDef:     Table definition structure (as returned by parse_tabledef())
-    # TableName:    Table name as string
-    # FieldName:    List of field names (empty to collect all), order does not matter
-    # CollectMode:  Collection mode code (P1 and P2 will be used depending on value)
-    # P1:           1st parameter used to specify what to collect (optional)
-    # P2:           2nd parameter used to specify what to collect (optional)
-    # SecurityCode: security code of the data logger
-
-    # Get table number
-    tablenbr = get_TableNbr(TableDef, TableName)
-    if tablenbr is None:
-        raise Exception('table %s not found in table definition' % TableName)
-
-    # Get table definition signature
-    tabledefsig = TableDef[tablenbr - 1]['Signature']
-
-    # Convert field names to list of field numbers
-    fieldnames = FieldNames
-    fieldnbr = []
-    for fn in range(1, len(TableDef[tablenbr-1]['Fields']) + 1):
-        fieldname = TableDef[tablenbr - 1]['Fields'][fn - 1]['FieldName']
-        try:
-            idx = fieldnames.index(fieldname)
-        except ValueError:
-            pass
-        else:
-            # Add field number to list and remove field name from search list
-            fieldnbr.append(fn)
-            del fieldnames[idx]
-        # End loop if field name list is empty
-        if not fieldnames:
-            break
-    # Issue warning if field names could not be resolved
-    if fieldnames:
-        raise Warning('field names not resolved for table %s: %s' % (TableName, fieldnames))
-
-    # Send collect data request
-    print("requesting data from table %d" % tablenbr)
-    pkt, TranNbr = pkt_collectdata_cmd(DstNodeId, SrcNodeId, tablenbr, tabledefsig, FieldNbr = fieldnbr, CollectMode = CollectMode, P1 = P1, P2 = P2, SecurityCode = SecurityCode)
-    send(s, pkt)
-    hdr, msg = wait_pkt(s, DstNodeId, SrcNodeId, TranNbr)
-    RecData, MoreRecsExist = parse_collectdata(msg['RecData'], TableDef, FieldNbr = fieldnbr)
-
-    # Return parsed record data and flag if more records exist
-    return RecData, MoreRecsExist
-
-
-#
-# Get table number from table name
-#
-def get_TableNbr(tabledef, TableName):
-    # tabledef:  table definition structure (as returned by parse_tabledef)
-    # TableName: table name
-
-    TableNbr = None
-    try:
-        for i in range(len(tabledef)):
-            if tabledef[i]['Header']['TableName'] == TableName:
-                TableNbr = i + 1
-                break
-    except:
-        pass
-
-    return TableNbr
-
-
-################################################################################
-#
-# Network utilities
-#
-################################################################################
-
-#
-# Open a socket to the PakBus port on a remote host
-#
-def open_socket(Host, Port = 6785, Timeout = 30):
-    # Host:     Remote host IP address or name
-    # Port:     TCP/IP port (defaults to 6785)
-    # Timeout:  Socket timeout
-
-    import socket
-    for res in socket.getaddrinfo(Host, Port, socket.AF_UNSPEC, socket.SOCK_STREAM):
-        af, socktype, proto, canonname, sa = res
-        try:
-            s = socket.socket(af, socktype, proto)
-        except socket.error as msg:
-            s = None
-            continue
-        try:
-            # Set timeout and try to connect to socket
-            s.settimeout(Timeout)
-            s.connect(sa)
-        except KeyError:
-            s.close()
-            s = None
-            continue
-        break
-
-    # Return socket object or None
-    return s
-
-def open_serial(port = "/dev/cu.HL340-04100000"):
-    import serial
-
-    try:
-        s = serial.Serial(port, 9600, 8, 'N', 1, timeout = 1, inter_byte_timeout=1, write_timeout=1)
-        # s.setInterCharTimeout(1)
-        # s.setTimeout(1)
-        # s.setWriteTimeout(1)
-    except serial.SerialException:
-        print("couldn't open serial port %s: %s" % (port, sys.exc_info()[0]))
-
-    return s
-
-    
-
-#
-# Check if remote host is available
-#
-def ping_node(s, DstNodeId, SrcNodeId):
-    # s:            Socket object
-    # DstNodeId:    Destination node ID (12-bit int)
-    # SrcNodeId:    Source node ID (12-bit int)
-
-    # send hello command and wait for response packet
-    pkt, TranNbr = pkt_hello_cmd(DstNodeId, SrcNodeId)
-    send(s, pkt)
-    hdr, msg = wait_pkt(s, DstNodeId, SrcNodeId, TranNbr)
-
-    return msg

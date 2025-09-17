@@ -1,8 +1,5 @@
-# from . import pakbus
-# from ..source import Source
-import pakbus
-# from . import pakbus
-# from ..source import Source
+from . import pakbus
+from ..source import Source
 import sys
 import time
 
@@ -76,8 +73,3 @@ class SourcePakbus(object):
 	def property_names(self):
 		return FIELDS
 
-if __name__ == "__main__":
-	source = SourcePakbus()
-	while True:
-		print(source.collect())
-		time.sleep(1)
