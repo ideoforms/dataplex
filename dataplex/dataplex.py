@@ -90,7 +90,8 @@ class Dataplex:
                                          port=source_config.port)
             elif source_config.type == "csv":
                 source = SourceCSV(path=source_config.path,
-                                   rate=source_config.rate)
+                                   rate=source_config.rate,
+                                   property_names=property_names)
             elif source_config.type == "jdp":
                 source = SourceJDP(property_names=property_names,
                                    port=source_config.port)
@@ -122,21 +123,7 @@ class Dataplex:
                             assert len(processor.keys()) == 1, "Processor must be a dict with a single key"
                             processor_type = list(processor.keys())[0]
                             processor_params = processor[processor_type]
-                            if processor_type == "smooth":
-                                processor = ProcessorSmooth(**processor_params)
-                                self.processors[property["name"]].append(processor)
-                            elif processor_type == "normalise":
-                                normalise_type = processor_params["type"]
-                                del processor_params["type"]
-                                if normalise_type == "linear":
-                                    processor = ProcessorLinearNormalise(**processor_params)
-                                elif normalise_type == "ecdf":
-                                    processor = ProcessorECDFNormalise(**processor_params)
-                                else:
-                                    raise ValueError(f"Normalise type not known: {normalise_type}")
-                                self.processors[property["name"]].append(processor)
-                            else:
-                                logger.warning("Processor type %s not implemented" % processor_type)
+                            self.add_processor(property["name"], processor_type, **processor_params)
 
         #--------------------------------------------------------------
         # Init: Destinations
@@ -153,8 +140,10 @@ class Dataplex:
                                              destination_config.port)
             elif destination_config.type == "stdout":
                 destination = DestinationStdout(property_names=self.property_names)
+            elif destination_config.type == "scope":
+                destination = DestinationScope(property_names=self.property_names)
             else:
-                raise ValueError(f"Destination type not known: f{destination_config.type}")
+                raise ValueError(f"Destination type not known: {destination_config.type}")
 
             self.destinations.append(destination)
 
@@ -164,14 +153,15 @@ class Dataplex:
         #--------------------------------------------------------------
         try:
             record = {}
-            for source_name, source in self.sources.items():
+            for source in self.sources.values():
                 data = source.collect()
                 if data:
                     record.update(data)
 
         except StopIteration:
             #--------------------------------------------------------------
-            # TODO: we should throw this when a CSV file has finished
+            # This should be thrown when a source stream terminates
+            # (TODO: Check if this happens)
             #--------------------------------------------------------------
             logger.info("Source %s ended stream." % self.source)
             raise
@@ -189,10 +179,10 @@ class Dataplex:
             if key == "time":
                 self.data[key] = record[key]
             else:
-                value = record[key]
+                self.data[key] = record[key]
+
                 for processor in self.processors.get(key, []):
-                    value = processor.process(value)
-                    self.data[key] = value
+                    self.data[key] = processor.process(self.data[key])
 
         #--------------------------------------------------------------
         # If any of our data sources are not yet set (returning None),
@@ -227,12 +217,20 @@ class Dataplex:
             rolling_buffer.append(self.data)
 
         return self.data
+    
 
-    def run(self):
-        """
-        Run the main server process, blocking indefinitely.
-        """
-
+    def __iter__(self):
+        self.initialise()
+        return self
+    
+    def __next__(self):
+        #--------------------------------------------------------------
+        # Wait until next cycle
+        #--------------------------------------------------------------
+        time.sleep(self.config.read_interval)
+        return self.next()
+    
+    def initialise(self):
         #--------------------------------------------------------------
         # Print output
         #--------------------------------------------------------------
@@ -242,6 +240,9 @@ class Dataplex:
         logger.info("Destinations: ")
         for destination in self.destinations:
             logger.info(" - %s" % destination)
+        logger.info("Property names: ")
+        for property_name in self.property_names:
+            logger.info(" - %s" % property_name)
 
         #------------------------------------------------------------------------------
         # Run any initialisation code for sources whose properties may have been
@@ -250,16 +251,14 @@ class Dataplex:
         for source in self.sources.values():
             source.start()
 
-        while True:
-            self.next()
+    def run(self):
+        """
+        Run the main server process, blocking indefinitely.
+        """
+        self.initialise()
 
-            #--------------------------------------------------------------
-            # Wait until next cycle
-            #--------------------------------------------------------------
-            if isinstance(list(self.sources.keys())[0], SourceCSV):
-                time.sleep(0.01)
-            else:
-                time.sleep(self.config.read_interval)
+        while True:
+            next(self)
 
     def add_source(self,
                    source: Optional[Source] = None,
@@ -288,7 +287,7 @@ class Dataplex:
                 if property_name not in self.property_names:
                     if property_type == "float":
                         self.data[property_name] = None
-                        
+
                         self.property_names.append(property_name)
                     elif property_type == "vec3":
                         for suffix in ["x", "y", "z"]:
@@ -316,8 +315,39 @@ class Dataplex:
             self.destinations.append(destination)
         else:
             raise ValueError("Destination %s invalid" % destination)
-    
+
         return destination
+
+    def add_processor(self,
+                      property_name: str,
+                      processor_type: str,
+                      **processor_params):
+        """
+        Add a processor to the server.
+
+        Args:
+            property_name (str): The name of the property to process.
+            processor_type (str): The type of processor to add.
+            params (dict, optional): Additional parameters for the processor.
+        """
+        if property_name not in self.processors:
+            self.processors[property_name] = []
+
+        if processor_type == "smooth":
+            processor = ProcessorSmooth(**processor_params)
+            self.processors[property_name].append(processor)
+        elif processor_type == "normalise":
+            normalise_type = processor_params["type"]
+            del processor_params["type"]
+            if normalise_type == "linear":
+                processor = ProcessorLinearNormalise(**processor_params)
+            elif normalise_type == "ecdf":
+                processor = ProcessorECDFNormalise(**processor_params)
+            else:
+                raise ValueError(f"Normalise type not known: {normalise_type}")
+            self.processors[property_name].append(processor)
+        else:
+            logger.warning("Processor type %s not implemented" % processor_type)
 
     def get_source(self, name) -> Source:
         """
