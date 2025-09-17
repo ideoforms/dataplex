@@ -88,9 +88,21 @@ if 'transact' not in vars():
 def send(s, pkt):
     # s: socket object
     # pkt: unquoted, unframed PakBus packet (just header + message)
-    frame = quote(pkt + calcSigNullifier(calcSigFor(pkt)))
-    s.write('\xBD' + frame + '\xBD')
-
+    # if isinstance(pkt, str):
+        # pkt = pkt.encode('latin-1')
+    
+    sig_nullifier = calcSigNullifier(calcSigFor(pkt))
+    # if isinstance(sig_nullifier, str):
+    #     sig_nullifier = sig_nullifier.encode('latin-1')
+    
+    frame = quote(pkt + sig_nullifier)
+    # if isinstance(frame, str):
+    #     frame = frame.encode('latin-1')
+    
+    msg = b'\xBD' + frame + b'\xBD'
+    print(msg)
+    s.write(msg)
+    s.flush()
 
 #
 # Receive packet over PakBus
@@ -179,7 +191,12 @@ def PakBus_hdr(DstNodeId, SrcNodeId, HiProtoCode, ExpMoreCode = 0x2, LinkState =
 def calcSigFor(buff, seed = 0xAAAA):
     sig = seed
     for x in buff:
-        x = ord(x)
+        if isinstance(x, str):
+            x = ord(x)
+        elif isinstance(x, int):
+            x = x
+        else:
+            x = x if isinstance(x, int) else ord(x)
         j = sig
         sig = (sig <<1) & 0x1FF
         if sig >= 0x100: sig += 1
@@ -197,23 +214,32 @@ def calcSigNullifier(sig):
         if sig2 >= 0x100: sig2 += 1
         nulb = chr((0x100 - (sig2 + (sig >>8))) & 0xFF)
         nullif += nulb
-    return nullif
+    return nullif.encode('latin-1')
 
 #
 # Quote PakBus packet
 #
 def quote(pkt):
-    pkt = string.replace(pkt, '\xBC', '\xBC\xDC') # quote \xBC characters
-    pkt = string.replace(pkt, '\xBD', '\xBC\xDD') # quote \xBD characters
+    # if isinstance(pkt, str):
+        # pkt = pkt.encode('latin-1')
+    
+    pkt = pkt.replace(b'\xBC', b'\xBC\xDC')  # quote \xBC characters
+    pkt = pkt.replace(b'\xBD', b'\xBC\xDD')  # quote \xBD characters
+    
     return pkt
 
 #
 # Unquote PakBus packet
 #
 def unquote(pkt):
-    pkt = string.replace(pkt, '\xBC\xDD', '\xBD') # unquote \xBD characters
-    pkt = string.replace(pkt, '\xBC\xDC', '\xBC') # unquote \xBC characters
+    # if isinstance(pkt, str):
+        # pkt = pkt.encode('latin-1')
+    
+    pkt = pkt.replace(b'\xBC\xDD', b'\xBD')  # unquote \xBD characters
+    pkt = pkt.replace(b'\xBC\xDC', b'\xBC')  # unquote \xBC characters
+    
     return pkt
+
 
 ################################################################################
 #
@@ -1190,7 +1216,7 @@ def encode_bin(Types, Values):
     # Types:   List of strings containing data types for fields
     # Values:  List of values (must have same number of elements as Types)
 
-    buff = '' # buffer for binary data
+    buff = b'' # buffer for binary data
     for i in range(len(Types)):
         Type = Types[i]
         fmt = datatype[Type]['fmt'] # get default format for Type
@@ -1598,10 +1624,10 @@ def open_serial(port = "/dev/cu.HL340-04100000"):
     import serial
 
     try:
-        s = serial.Serial(port, 9600, 8, 'N', 1, timeout = 1)
-        s.interCharTimeout = 1
-        s.timeout = 1
-        s.writeTimeout = 1
+        s = serial.Serial(port, 9600, 8, 'N', 1, timeout = 1, inter_byte_timeout=1, write_timeout=1)
+        # s.setInterCharTimeout(1)
+        # s.setTimeout(1)
+        # s.setWriteTimeout(1)
     except serial.SerialException:
         print("couldn't open serial port %s: %s" % (port, sys.exc_info()[0]))
 
