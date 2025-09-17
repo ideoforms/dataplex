@@ -1,15 +1,22 @@
 config:
-  read_interval: 0.05
+  read_interval: 0.02
 sources:
   - name: audio
     type: audio
     properties:
-      - rms
-      - f0
-      - f0-voiced-prob
-      - spectral-flux
-      - spectral-centroid
-      - spectral-flatness
+      - name: rms
+        processors:
+          - smooth:
+              smoothing: 0.9
+          - normalise:
+              type: linear
+      - name: spectral-flatness
+        processors:
+          - smooth:
+              smoothing: 0.9
+          - normalise:
+              type: linear
+      - name: spectral-centroid
     # properties:
     #   - feature: rms
     #     name: rms
@@ -29,3 +36,4 @@ sources:
 destinations:
   - type: csv
     path: logs/data.%Y%m%d.%H%M%S.csv
+  - type: scope

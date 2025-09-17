@@ -10,31 +10,12 @@ from dataplex.utils import serialise_data
 def main(args):
     import os
     os.environ["SIGNALFLOW_INPUT_DEVICE_NAME"] = "Loopback 2ch"
+    os.environ["SIGNALFLOW_INPUT_DEVICE_NAME"] = "MacBook Pro Microphone"
     graph = AudioGraph()
-    client = JDPClient("localhost", 48000)
- 
-    def on_record(record):
-        data = serialise_data(record)
-        client.send({"data": {
-            "rms": data["rms"]["value"],
-            "f0": data["f0"]["value"],
-            "spectral-flatness": data["spectral-flatness"]["value"],
-            "spectral-flux": data["spectral-flux"]["value"],
-            "spectral-centroid": data["spectral-centroid"]["value"],
-            "levels": [
-                data["rms"]["normalised"],
-                data["f0"]["normalised"],
-                data["spectral-flux"]["normalised"]
-            ]
-        }})
 
     dataplex = Dataplex("config/audio-features.yaml")
     if args.verbose:
         dataplex.add_destination(DestinationStdout())
-    dataplex.on_record_callback = on_record
-
-    datascope_config = json.load(open("config/datascope-config.json"))
-    client.send({"config": datascope_config})
 
     if args.live:
         input_node = AudioIn(1)

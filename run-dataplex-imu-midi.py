@@ -19,6 +19,9 @@ if __name__ == "__main__":
     # TODO: Have the default behaviour be to read as soon as a new frame arrives (if a "push" style source is present)
     dataplex.config.read_interval = 0.01
     dataplex.add_source(type="osc", port=8000, properties={"/imu/gyro": "vec3"})
+    for dim in ["x", "y", "z"]:
+        dataplex.add_processor("/imu/gyro_%s" % dim, "normalise", type="linear")
+        dataplex.add_processor("/imu/accel_%s" % dim, "normalise", type="linear")
     dataplex.add_destination("stdout")
 
     # TODO: Have property_names inferred automatically
