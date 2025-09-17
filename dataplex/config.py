@@ -6,6 +6,7 @@ from typing import Optional, Union, Literal
 from pydantic import BaseModel
 import json
 import yaml
+import os
 
 #--------------------------------------------------------------------------------
 # Sources
@@ -14,7 +15,7 @@ class SourceConfig(BaseModel):
     name: Optional[str] = None
     type: str
     enabled: Optional[bool] = True
-    properties: Optional[Union[list[str], list[dict]]]
+    properties: Optional[Union[list[str], list[dict]]] = []
 
 class UltimeterSourceConfig(SourceConfig):
     type: Literal['ultimeter']
@@ -65,6 +66,9 @@ class CSVDestinationConfig(BaseModel):
 class StdoutDestinationConfig(BaseModel):
     type: Literal['stdout']
 
+class ScopeDestinationConfig(BaseModel):
+    type: Literal['scope']
+
 #--------------------------------------------------------------------------------
 # Union types for sources and destinations
 #--------------------------------------------------------------------------------
@@ -75,10 +79,12 @@ SourceUnion = Union[AudioSourceConfig,
                     CSVSourceConfig,
                     JDPSourceConfig,
                     UltimeterSourceConfig]
+
 DestinationUnion = Union[OSCDestinationConfig,
                          CSVDestinationConfig,
                          JDPDestinationConfig,
-                         StdoutDestinationConfig]
+                         StdoutDestinationConfig,
+                         ScopeDestinationConfig]
 
 #--------------------------------------------------------------------------------
 # Top-level config
@@ -87,13 +93,16 @@ DestinationUnion = Union[OSCDestinationConfig,
 class GeneralConfig(BaseModel):
     read_interval: Optional[float] = 0.25
 
+from pydantic import Field
+
 class Config(BaseModel):
     config: GeneralConfig = GeneralConfig()
-    sources: list[SourceUnion] = []
+    sources: list[SourceUnion] = Field(default_factory=list, discriminator='type')
     destinations: list[DestinationUnion] = []
 
-
 def load_config(config_path: str):
+    if not os.path.exists(config_path):
+        raise FileNotFoundError("Config file not found: %s" % config_path)
     if config_path.endswith(".json"):
         return Config(**(json.load(open(config_path))))
     elif config_path.endswith(".yaml") or config_path.endswith(".yml"):
