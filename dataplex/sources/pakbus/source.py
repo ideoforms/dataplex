@@ -1,15 +1,18 @@
-from . import pakbus
-from ..source import Source
+# from . import pakbus
+# from ..source import Source
+import pakbus
+import sys
+import time
 
 #----------------------------------------------------------------------
 # serial setup
 #----------------------------------------------------------------------
 PAKBUS_NODEID = 0x01
 PAKBUS_MYNODEID = 0x802
-PAKBUS_DEV = "/dev/cu.usbserial-FTGOJL30"
+PAKBUS_DEV = "/dev/cu.usbserial-FTELIIL0"
 
 #----------------------------------------------------------------------
-# translations from BWS names to shortnames
+# Translations from BWS names to shortnames
 #----------------------------------------------------------------------
 PAKBUS_property_names = {
     "Batt_Volt" : "battery",
@@ -25,17 +28,17 @@ PAKBUS_property_names = {
     "Solar_kJ"  : "sunkj",
 }
 
-FIELDS = [ "temperature", "humidity", "wind_speed", "wind_dir", "rain", "sun" ]
+FIELDS = [ "temperature", "humidity", "wind_speed", "wind_dir", "rain", "sun", "battery" ]
 
-class SourcePakbus(Source):
+class SourcePakbus(object):
 	def __init__(self):
 		#--------------------------------------------------------------
 		# if we're in serial mode, connect to pakbus port.
 		#--------------------------------------------------------------
 		try:
-			self.serial = pakbus.open_serial(settings.PAKBUS_DEV)
+			self.serial = pakbus.open_serial(PAKBUS_DEV)
 		except Exception as e:
-			print("Couldn't open serial device %s (%s)" % (settings.pakbus_dev, e))
+			print("Couldn't open serial device %s (%s)" % (PAKBUS_DEV, e))
 			sys.exit(1)
 
 		msg = pakbus.ping_node(self.serial, PAKBUS_NODEID, PAKBUS_MYNODEID)
@@ -70,3 +73,9 @@ class SourcePakbus(Source):
 	@property
 	def fields(self):
 		return FIELDS
+
+if __name__ == "__main__":
+	source = SourcePakbus()
+	while True:
+		print(source.collect())
+		time.sleep(1)

@@ -1599,9 +1599,9 @@ def open_serial(port = "/dev/cu.HL340-04100000"):
 
     try:
         s = serial.Serial(port, 9600, 8, 'N', 1, timeout = 1)
-        s.setInterCharTimeout(1)
-        s.setTimeout(1)
-        s.setWriteTimeout(1)
+        s.interCharTimeout = 1
+        s.timeout = 1
+        s.writeTimeout = 1
     except serial.SerialException:
         print("couldn't open serial port %s: %s" % (port, sys.exc_info()[0]))
 
