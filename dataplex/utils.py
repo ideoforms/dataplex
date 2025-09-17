@@ -26,7 +26,7 @@ def serialise_data(data: dict) -> dict:
             }
         except AttributeError:
             #------------------------------------------------------------------------
-            # For scalar fields (eg time), simply pass their value.
+            # For scalar properties (eg time), simply pass their value.
             #------------------------------------------------------------------------
             if isinstance(record, datetime.datetime):
                 structure[name] = record.strftime("%Y-%m-%d %H:%M:%S.%f")
