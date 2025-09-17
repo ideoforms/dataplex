@@ -26,8 +26,14 @@ class SourceOSC (Source):
             port (int): The port to listen on.
         """
         super().__init__()
+        self.property_names = []
         if properties:
-            self.property_names = list(properties.keys())
+            for property_name, property_type in properties.items():
+                if property_type == "vec3":
+                    for suffix in ["x", "y", "z"]:
+                        self.property_names.append("%s_%s" % (property_name, suffix))
+                else:
+                    self.property_names.append(property_name)
 
         self.data = {}
         self.port = port

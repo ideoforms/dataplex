@@ -13,7 +13,7 @@ Must be put into data logger mode by holding CLEAR + WINDSPEED for 3 seconds.
 """
 
 DATA_HEADER = "!!"
-DATA_FIELDS = [
+DATA_PROPERTIES = [
     "wind_speed",
     "wind_dir",
     "temperature",
@@ -27,7 +27,7 @@ DATA_FIELDS = [
     "rain_total",
     "wind_speed_mean"
 ]
-SKIP_FIELDS = [
+SKIP_PROPERTIES = [
     "date",
     "time"
 ]
@@ -203,7 +203,7 @@ class Ultimeter:
 
         message = message[len(DATA_HEADER):]
         self.values = {}
-        for field in DATA_FIELDS:
+        for property in DATA_PROPERTIES:
             value = message[:4]
 
             #------------------------------------------------------------------------
@@ -215,14 +215,14 @@ class Ultimeter:
                 value = 0
             message = message[4:]
 
-            if field in SKIP_FIELDS:
+            if property in SKIP_PROPERTIES:
                 continue
 
             #------------------------------------------------------------------------
             # Now convert between native serial values and our desired metric
             # measure.
             #------------------------------------------------------------------------
-            if field == "temperature":
+            if property == "temperature":
                 #------------------------------------------------------------------------
                 # temperature: unit = 0.1 degrees fahrenheit
                 # convert to degrees celsius
@@ -230,41 +230,41 @@ class Ultimeter:
                 value = value * 0.1
                 value = (value - 32) / 1.8
 
-            elif field == "humidity":
+            elif property == "humidity":
                 #------------------------------------------------------------------------
                 # humidity: unit = 0.1% RH
                 #------------------------------------------------------------------------
                 value = value * 0.1
 
-            elif field == "wind_dir":
+            elif property == "wind_dir":
                 #------------------------------------------------------------------------
                 # wind direction: unit = degrees (0..255)
                 # convert to (0..360)
                 #------------------------------------------------------------------------
                 value = 360.0 * value / 255.0
 
-            elif field == "wind_speed" or field == "wind_speed_mean":
+            elif property == "wind_speed" or property == "wind_speed_mean":
                 #------------------------------------------------------------------------
                 # wind speed: unit = 1.1kph
                 # convert to m/s
                 #------------------------------------------------------------------------
                 value = 100.0 * value / 3600.0
 
-            elif field == "rain":
+            elif property == "rain":
                 #------------------------------------------------------------------------
                 # unit = 0.01 in
                 # convert to inches
                 #------------------------------------------------------------------------
                 value = value / 100.0
 
-            elif field == "pressure":
+            elif property == "pressure":
                 #------------------------------------------------------------------------
                 # unit = 0.1 hPa
                 # convert to hPa
                 #------------------------------------------------------------------------
                 value = value / 10.0
 
-            self.values[field] = value
+            self.values[property] = value
 
         #------------------------------------------------------------------------
         # if we have a callback set, call it now with our updated values.

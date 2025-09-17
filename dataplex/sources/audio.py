@@ -31,8 +31,11 @@ class SourceAudio (Source):
             "f0": "vamp:pyin:yin:f0",
             "f0-voiced-prob": "vamp:pyin:pyin:voicedprob",
             "spectral-flux": "vamp:bbc-vamp-plugins:bbc-spectral-flux:spectral-flux",
-            "spectral-flatness": "vamp:vamp-libxtract:flatness:flatness",
-            "spectral-centroid": "vamp:vamp-example-plugins:spectralcentroid:linearcentroid",
+            # libxtract flatness just returns 0.0
+            # "spectral-flatness": "vamp:libvamp_essentia:bark_Flatness:bark_bark_Flatness",
+            "spectral-flatness": lambda input: FFTSpectralFlatness(FFT(input[0] + WhiteNoise() * 0.000001)),
+            "spectral-centroid": lambda input: FFTSpectralCentroid(FFT(input[0])),
+            "noisiness": "vamp:vamp-libxtract:noisiness:noisiness",
         }
 
         if self.input_node is None:
@@ -52,20 +55,18 @@ class SourceAudio (Source):
             
             # TODO: This smoothing should be configurable
             # feature_node = Smooth(feature_node, 0.9999)
+            feature_node = Abs(feature_node)
             self.graph.add_node(feature_node)
             self.feature_nodes[property_name] = feature_node
 
 
-    def collect(self):
+    def collect(self, blocking: bool = False):
         data = {}
         for property_name, feature_node in self.feature_nodes.items():
             data[property_name] = float(feature_node.output_buffer[0][0])
 
         return data
 
-    @property
-    def fields(self):
-        return self.properties
 
 if __name__ == "__main__":
     source = SourceAudio()

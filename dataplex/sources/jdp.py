@@ -11,7 +11,7 @@ class SourceJDP (Source):
         Listen for JSON Datagram Protocol packets.
 
         Args:
-            property_names (list[str]): The list of expected fields
+            property_names (list[str]): The list of expected properties
             port (int): The port to listen on.
         """
         super().__init__()

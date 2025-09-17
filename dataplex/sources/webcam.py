@@ -57,7 +57,7 @@ class SourceWebcam (Source):
         return data
 
     @property
-    def fields(self):
+    def property_names(self):
         return ["hue", "saturation", "brightness"]
 
 if __name__ == "__main__":

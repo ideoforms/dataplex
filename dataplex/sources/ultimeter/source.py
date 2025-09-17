@@ -2,7 +2,7 @@ from ..source import Source
 from . import ultimeter
 from typing import Optional
 
-FIELDS = [
+PROPERTIES = [
     "temperature",
     "wind_speed",
     "wind_dir",
@@ -12,7 +12,7 @@ FIELDS = [
 
 class SourceUltimeter (Source):
     def __init__(self,
-                 property_names: list[str] = FIELDS,
+                 property_names: list[str] = PROPERTIES,
                  port: Optional[str] = None):
         self.ultimeter = ultimeter.Ultimeter(port=port)
         self.ultimeter.start()
