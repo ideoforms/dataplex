@@ -4,9 +4,10 @@ from pythonosc.udp_client import SimpleUDPClient
 from .destination import Destination
 
 class DestinationOSC (Destination):
-    def __init__(self, host, port):
+    def __init__(self, host, port, prefix = "/data/"):
         self.host = host
         self.port = port
+        self.prefix = prefix
 
         self.osc_client = SimpleUDPClient(host, port)
 
@@ -20,7 +21,7 @@ class DestinationOSC (Destination):
         #--------------------------------------------------------------
         # first, send current time in hours and minutes 
         #--------------------------------------------------------------
-        self.send_message("/data/time", int(data["time"].timestamp()))
+        self.send_message("%stime" % self.prefix, int(data["time"].timestamp()))
 
         for name, record in list(data.items()):
             if name == "time":
@@ -38,7 +39,7 @@ class DestinationOSC (Destination):
                 value = float(record)
 
                 if value is not None:
-                    self.send_message("/data/%s" % name, value)
+                    self.send_message("%s%s" % (self.prefix, name), value, value)
             except IndexError:
                 #------------------------------------------------------------------------
                 # haven't yet got any data for this field (might not have read
