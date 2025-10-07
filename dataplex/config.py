@@ -53,6 +53,7 @@ class OSCDestinationConfig(BaseModel):
     type: Literal['osc']
     host: str
     port: int
+    prefix: str = "/data/"
 
 class JDPDestinationConfig(BaseModel):
     type: Literal['jdp']

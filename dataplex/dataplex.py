@@ -134,7 +134,8 @@ class Dataplex:
                                              path_template=destination_config.path)
             elif destination_config.type == "osc":
                 destination = DestinationOSC(destination_config.host,
-                                             destination_config.port)
+                                             destination_config.port,
+                                             prefix=destination_config.prefix)
             elif destination_config.type == "jdp":
                 destination = DestinationJDP(destination_config.host,
                                              destination_config.port)
