@@ -84,7 +84,7 @@ class Dataplex:
                 property_names = source_config.properties
 
             if source_config.type == "pakbus":
-                source = SourcePakbus()
+                source = SourcePakbus(property_names=property_names)
             elif source_config.type == "ultimeter":
                 source = SourceUltimeter(property_names=property_names,
                                          port=source_config.port)
