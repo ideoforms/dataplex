@@ -344,9 +344,12 @@ class Dataplex:
                 processor = ProcessorLinearNormalise(**processor_params)
             elif normalise_type == "ecdf":
                 processor = ProcessorECDFNormalise(**processor_params)
+            elif normalise_type == "none":
+                processor = None
             else:
                 raise ValueError(f"Normalise type not known: {normalise_type}")
-            self.processors[property_name].append(processor)
+            if processor is not None:
+                self.processors[property_name].append(processor)
         else:
             logger.warning("Processor type %s not implemented" % processor_type)
 
