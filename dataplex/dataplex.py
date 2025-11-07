@@ -6,8 +6,8 @@ from typing import Optional, Union
 from collections import OrderedDict
 
 from .config import load_config, GeneralConfig
-from .sources import Source, SourceAudio, SourceCSV, SourceOSC, SourcePakbus, SourceUltimeter, SourceWebcam, SourceJDP, SourceSerial
-from .destinations import Destination, DestinationJDP, DestinationCSV, DestinationOSC, DestinationStdout, DestinationMidi, DestinationScope
+from .sources import Source, SourceAudio, SourceCSV, SourceOSC, SourcePakbus, SourceUltimeter, SourceWebcam, SourceJDP, SourceSerial, SourceZMQ
+from .destinations import Destination, DestinationJDP, DestinationCSV, DestinationOSC, DestinationStdout, DestinationMidi, DestinationScope, DestinationZMQ
 from .processors import ProcessorSmooth, ProcessorLinearNormalise, ProcessorECDFNormalise
 from .buffer import RollingFeatureBuffer
 
@@ -22,7 +22,8 @@ class Dataplex:
         "jdp": SourceJDP,
         "video": SourceWebcam,
         "audio": SourceAudio,
-        "serial": SourceSerial
+        "serial": SourceSerial,
+        "zmq": SourceZMQ
     }
 
     DESTINATION_CLASS_MAP = {
@@ -31,7 +32,8 @@ class Dataplex:
         "jdp": DestinationJDP,
         "stdout": DestinationStdout,
         "midi": DestinationMidi,
-        "scope": DestinationScope
+        "scope": DestinationScope,
+        "zmq": DestinationZMQ
     }
 
     def __init__(self,
@@ -95,6 +97,8 @@ class Dataplex:
             elif source_config.type == "jdp":
                 source = SourceJDP(property_names=property_names,
                                    port=source_config.port)
+            elif source_config.type == "zmq":
+                source = SourceZMQ(property_names=property_names)
             elif source_config.type == "video":
                 source = SourceWebcam(source.camera_index)
             elif source_config.type == "audio":

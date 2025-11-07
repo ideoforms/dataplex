@@ -39,6 +39,9 @@ class JDPSourceConfig(SourceConfig):
     type: Literal['jdp']
     port: Optional[int] = 48000
 
+class ZMQSourceConfig(SourceConfig):
+    type: Literal['zmq']
+
 class AudioSourceConfig(SourceConfig):
     type: Literal['audio']
     block_size: Optional[int] = 256
@@ -68,6 +71,9 @@ class CSVDestinationConfig(BaseModel):
     type: Literal['csv']
     path: str
 
+class ZMQDestinationConfig(BaseModel):
+    type: Literal['zmq']
+
 class StdoutDestinationConfig(BaseModel):
     type: Literal['stdout']
 
@@ -84,13 +90,15 @@ SourceUnion = Union[AudioSourceConfig,
                     CSVSourceConfig,
                     JDPSourceConfig,
                     PakbusSourceConfig,
-                    UltimeterSourceConfig]
+                    UltimeterSourceConfig,
+                    ZMQSourceConfig]
 
 DestinationUnion = Union[OSCDestinationConfig,
                          CSVDestinationConfig,
                          JDPDestinationConfig,
                          StdoutDestinationConfig,
-                         ScopeDestinationConfig]
+                         ScopeDestinationConfig,
+                         ZMQDestinationConfig]
 
 #--------------------------------------------------------------------------------
 # Top-level config

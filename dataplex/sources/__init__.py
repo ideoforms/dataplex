@@ -7,3 +7,4 @@ from .ultimeter import SourceUltimeter
 from .jdp import SourceJDP
 from .serial import SourceSerial
 from .osc import SourceOSC
+from .zmq import SourceZMQ
