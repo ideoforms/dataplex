@@ -27,7 +27,9 @@ def get_local_ip():
 
 
 class DestinationZMQ (Destination):
-    def __init__(self):
+    def __init__(self,
+                 property_names: list[str] = None):
+        self.property_names = property_names
         public_ip = get_local_ip()
         logger.info(f"Detected LAN IP: {public_ip}")
 
