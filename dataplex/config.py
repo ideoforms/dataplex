@@ -22,6 +22,10 @@ class UltimeterSourceConfig(SourceConfig):
     port: Optional[str] = None
     interval: Optional[float] = None
 
+class PakbusSourceConfig(SourceConfig):
+    type: Literal['pakbus']
+    interval: Optional[float] = None
+
 class SerialSourceConfig(SourceConfig):
     type: Literal['serial']
     port_name: Optional[str] = None
@@ -79,6 +83,7 @@ SourceUnion = Union[AudioSourceConfig,
                     SerialSourceConfig,
                     CSVSourceConfig,
                     JDPSourceConfig,
+                    PakbusSourceConfig,
                     UltimeterSourceConfig]
 
 DestinationUnion = Union[OSCDestinationConfig,
