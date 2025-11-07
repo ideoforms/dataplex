@@ -1,12 +1,11 @@
-import jdp
 import logging
 from zeroconf import Zeroconf, ServiceInfo
 import socket
-import zeroconf
 import zmq
 import time
 
 from .destination import Destination
+from ..utils import serialise_data
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +53,7 @@ class DestinationZMQ (Destination):
         logger.info(f"Service advertised via Zeroconf at {public_ip}:{PUB_PORT}")
 
     def send(self, data):
+        data = serialise_data(data)
         self.pub.send_json(data)
 
     def close(self):
