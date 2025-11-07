@@ -145,6 +145,8 @@ class Dataplex:
                                              destination_config.port)
             elif destination_config.type == "stdout":
                 destination = DestinationStdout(property_names=self.property_names)
+            elif destination_config.type == "zmq":
+                destination = DestinationZMQ(property_names=self.property_names)
             elif destination_config.type == "scope":
                 destination = DestinationScope(property_names=self.property_names)
             else:
